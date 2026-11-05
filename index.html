@@ -1,0 +1,941 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>THE ZOOS 상품 매핑 검증센터</title>
+    <meta name="description" content="가상 데이터로 구성한 THE ZOOS 포트폴리오 데모입니다. 주문정보와 자사상품 마스터를 비교해 매핑 결과, 검토 필요 항목, 입고예정, 품절 리스트를 확인합니다." />
+    <meta name="robots" content="index, follow" />
+    <meta property="og:title" content="THE ZOOS 상품 매핑 검증센터" />
+    <meta property="og:description" content="주문 매핑, 수동 매핑 검토, 자사상품 마스터, 입고예정과 품절 데이터를 한 곳에서 확인하는 업무용 웹사이트입니다." />
+    <meta property="og:type" content="website" />
+    <link rel="stylesheet" href="./styles.css?v=20261031-1" />
+    <style>
+      .brand{display:block!important;text-align:center;letter-spacing:0!important;width:100%;border:0;background:transparent;padding:0;cursor:pointer}.brand-logo{display:block;width:150px;max-width:100%;height:auto;margin:0 auto 16px}.file-mode{display:flex;align-items:center;gap:8px;margin:-6px 0 20px;font-size:12px;color:#6d7175}.file-mode span{margin-right:auto}.file-mode button{border:1px solid #e5e7e8;background:#fff;border-radius:6px;padding:7px 9px;color:#62676b;cursor:pointer;font-size:12px}.file-mode button.selected{border-color:#f47c00;background:#fff1e5;color:#c65b00;font-weight:700}.clickable-review{cursor:pointer}.clickable-review:focus{outline:2px solid #f47c00;outline-offset:2px}.history-actions{display:flex;gap:8px;flex-wrap:wrap}#review-items-body tr{cursor:pointer}.selected-row td{background:#fff8f1}td strong{display:block;font-weight:700}td small{display:block;margin-top:4px;color:#70767b;font-size:11px}.accuracy-bad{display:block;color:#c73c35;font-weight:800}.accuracy-good{display:block;color:#277d4e;font-weight:800}.interpretation{display:flex;gap:10px;align-items:center;margin:10px 0;padding:10px 12px;border:1px solid #f0d8bd;border-radius:7px;background:#fff;font-size:12px}.interpretation[hidden]{display:none}.interpretation span{color:#555b60}.correction{padding:22px;border-top:1px solid #e8e9ea;background:#fff8f1}.correction h3{margin-bottom:5px}.correction p{color:#6d7175;font-size:13px}.correction textarea,.bot-drawer textarea{width:100%;min-height:78px;resize:vertical;border:1px solid #dedfe1;border-radius:8px;padding:11px;font:inherit;font-size:13px}.correction-actions{display:flex;align-items:center;gap:10px;margin-top:10px}.confirm-check{margin-right:auto;font-size:12px;color:#555b60}.draft-list,.processed-list{display:grid;gap:6px;margin-top:14px}.draft-list div,.processed-item{display:flex;gap:10px;padding:9px 10px;background:#fff;border:1px solid #f0d8bd;border-radius:7px;font-size:12px}.draft-list span,.processed-item span{color:#666d72}.draft-list>span,.processed-list>span{font-size:12px;color:#777}.processed-results{margin-top:18px;padding-top:16px;border-top:1px solid #f0d8bd}.processed-item{align-items:center;justify-content:space-between}.processed-actions{display:flex;gap:6px;flex-wrap:wrap}.processed-actions button{border:1px solid #f47c00;background:#fff;color:#c65b00;border-radius:6px;padding:7px 9px;font-size:12px;font-weight:700;cursor:pointer}.bot-toggle{position:fixed;right:26px;top:24px;z-index:30;width:44px;height:44px;border:0;border-radius:50%;background:#f47c00;color:#fff;font-size:21px;font-weight:900;box-shadow:0 10px 24px #0002;cursor:pointer}.bot-drawer{position:fixed;right:26px;top:78px;z-index:31;width:min(390px,calc(100vw - 32px));max-height:calc(100vh - 104px);overflow:auto;padding:18px;background:#fff;border:1px solid #e8e9ea;border-radius:12px;box-shadow:0 18px 42px #0002;display:grid;gap:12px}.bot-drawer[hidden],.bot-settings[hidden],.admin-login[hidden],.admin-gate[hidden]{display:none}.bot-drawer-head{display:flex;align-items:start;justify-content:space-between;gap:12px}.bot-drawer-head h3{margin:0;font-size:20px}.bot-drawer-head button{border:0;background:#f7f7f6;border-radius:50%;width:30px;height:30px;cursor:pointer;font-size:18px}.bot-head-actions{display:flex;align-items:center;gap:8px}.bot-drawer-head .admin-access-button{width:auto;height:auto;border-radius:999px;background:#2f363d;color:#fff;padding:8px 12px;font-size:12px;font-weight:800;white-space:nowrap}.bot-drawer-head .admin-access-button:hover{background:#111820}.bot-prompts{display:grid;grid-template-columns:1fr;gap:7px}.bot-prompts button{border:1px solid #f0d8bd;background:#fff8f1;color:#c65b00;border-radius:8px;padding:9px 10px;text-align:left;font-weight:700;cursor:pointer}.admin-gate,.admin-login{display:grid;gap:8px}.admin-login{grid-template-columns:1fr auto}.admin-login input{border:1px solid #dedfe1;border-radius:8px;padding:10px;font:inherit;font-size:13px}.bot-settings{display:grid;grid-template-columns:1fr;gap:8px;padding:12px;border:1px solid #f0d8bd;border-radius:8px;background:#fff8f1}.bot-settings label{display:grid;gap:6px;color:#555b60;font-size:12px}.bot-settings input{border:1px solid #dedfe1;border-radius:8px;padding:10px;font:inherit;font-size:13px}.bot-answer{min-height:130px;padding:14px;border:1px solid #f0d8bd;border-radius:8px;background:#fff8f1;color:#3b4045;font-size:13px;line-height:1.7;white-space:pre-wrap}.admin-verification-card{display:grid;gap:10px;white-space:normal}.admin-verification-card h4{margin:0;font-size:18px}.admin-code-box{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px;border:1px solid #f0d8bd;border-radius:10px;background:#fff}.admin-code-box strong{font-size:24px;letter-spacing:2px;color:#f47c00}.admin-code-box button{border:0;border-radius:8px;background:#2f363d;color:#fff;padding:9px 12px;font-weight:800;cursor:pointer}.admin-verification-card small{color:#6d7175}.correction-status{margin:12px 0 0!important;color:#25744b!important;font-weight:700}.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center}.modal-overlay[hidden]{display:none}.modal-content{background:#fff;padding:28px 24px;border-radius:14px;width:340px;box-shadow:0 12px 40px rgba(0,0,0,0.2);text-align:center}.modal-content h3{margin-bottom:12px;color:#c73c35;font-size:20px}.modal-content p{color:#555;font-size:15px;margin-bottom:24px}@media(max-width:850px){.file-mode{flex-wrap:wrap}.file-mode span{width:100%}.correction-actions,.processed-item,.bot-settings{align-items:stretch;grid-template-columns:1fr;flex-direction:column}.confirm-check{margin-right:0}.correction-actions button,.processed-actions button,.history-actions button{width:100%}.bot-toggle{right:16px;top:16px}.bot-drawer{right:16px;top:68px}}
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <button class="brand" type="button" data-page="dashboard"><img class="brand-logo" src="./assets/the-zoos-logo.png" alt="더주스 로고" /></button>
+        <nav class="sidebar-nav" aria-label="업무 메뉴">
+          <div class="nav-menu-group">
+            <button class="nav-item nav-parent active" data-page="dashboard">대시보드</button>
+            <button class="nav-item nav-child" type="button" data-dash-jump="coordination">입고조정 협의보드</button>
+            <button class="nav-item nav-child" type="button" data-dash-jump="ops">재고현황</button>
+          </div>
+          <div class="nav-menu-group">
+            <button class="nav-item nav-parent" data-page="mapping">주문매핑</button>
+            <button class="nav-item nav-child" data-page="review">매핑수정</button>
+            <button class="nav-item nav-child" data-page="learning">학습데이터</button>
+            <button class="nav-item nav-child" data-page="master">자사상품마스터</button>
+            <button class="nav-item nav-child" data-page="history">작업이력</button>
+          </div>
+          <div class="nav-menu-group">
+            <p class="nav-group-label">입고일정확인</p>
+            <button class="nav-item nav-child" data-page="inbound">이번주 입고예정</button>
+            <button class="nav-item nav-child" data-page="soldout">품절리스트</button>
+          </div>
+          <div class="nav-menu-group">
+            <p class="nav-group-label">추가 기능</p>
+            <button class="nav-item nav-child" data-page="smartstore">스토어팜 전용 재고</button>
+            <button class="nav-item nav-child" data-page="expiry">유통기한 관리</button>
+          </div>
+          <section class="data-basis-card" aria-labelledby="data-basis-title">
+            <p class="data-basis-eyebrow">FILE DATA BASIS</p>
+            <strong id="data-basis-title">파일 업로드 기준 일시</strong>
+            <dl>
+              <div><dt>국내</dt><dd data-basis-time="domestic">확인 중</dd></div>
+              <div><dt>수입</dt><dd data-basis-time="import">확인 중</dd></div>
+              <div><dt>현재고</dt><dd data-basis-time="stock">확인 중</dd></div>
+            </dl>
+            <small>원본 데이터 변경 감지 기준</small>
+          </section>
+        </nav>
+      </aside>
+      <main>
+        <header><div><p class="eyebrow">ORDER MAPPING CENTER</p><h1>상품 매핑을 정확하게.</h1></div></header>
+
+        <section id="dashboard" class="page active">
+          <div class="page-heading inventory-dashboard-heading">
+            <div>
+              <p class="eyebrow">INVENTORY FORECAST</p>
+              <h2>대시보드</h2>
+              <p>입고조정 협의보드와 재고현황만 모아서 봅니다. 표는 가로 스크롤할 수 있습니다.</p>
+            </div>
+            <div class="history-actions">
+              <button class="secondary" type="button" onclick="document.querySelector('[data-page=soldout]').click()">품절 리스트</button>
+              <button class="primary" type="button" onclick="document.querySelector('[data-page=inbound]').click()">입고예정 보기</button>
+            </div>
+          </div>
+          <p id="inventory-dashboard-status" class="inventory-dashboard-status">재고 데이터를 분석하고 있습니다.</p>
+          <form id="inventory-main-search-form" class="inventory-main-search-form" data-inventory-main-search role="search">
+            <div><strong>메인 상품 검색</strong><span>상태·분류와 관계없이 전체 상품에서 찾습니다.</span></div>
+            <label><span class="sr-only">메인 상품 검색어</span>
+              <input id="inventory-main-search-input" type="search" placeholder="상품명 또는 바코드를 입력해주세요" autocomplete="off" />
+              <button type="submit" aria-label="전체 상품 검색">🔍</button>
+            </label>
+          </form>
+          <section id="inventory-main-search-panel" class="panel inventory-main-search-panel" aria-live="polite" hidden>
+            <div class="section-title">
+              <div><p class="eyebrow">MAIN PRODUCT SEARCH</p><h3 id="inventory-main-search-title">상품 검색 결과</h3></div>
+              <div class="inventory-main-search-actions">
+                <span id="inventory-main-search-count" class="tag orange">0품목</span>
+                <button type="button" class="inventory-main-search-clear" data-inventory-main-search-clear aria-label="메인 검색 결과 닫기">×</button>
+              </div>
+            </div>
+            <p class="inventory-panel-description">기존 상태·분류·세부 검색을 모두 해제하고 전체 상품에서 찾은 결과입니다.</p>
+            <div class="inventory-table-wrap h-scroll-wrap">
+              <table>
+                <thead><tr><th>상품명</th><th>현재 재고</th><th>일평균 소진량</th><th>다음 입고예정일</th><th>상태</th></tr></thead>
+                <tbody id="inventory-main-search-body"><tr><td colspan="5" class="inventory-empty">상품명 또는 바코드로 검색해주세요.</td></tr></tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- 3. 입고조정 협의보드 -->
+          
+          <div hidden aria-hidden="true">
+            <b id="dashboard-pressure-count">0</b>
+            <b id="dashboard-arrival-risk-count">0</b>
+            <b id="dashboard-deadstock-count">0</b>
+            <span id="dashboard-pressure-list-count"></span>
+            <span id="dashboard-arrival-list-count"></span>
+            <span id="dashboard-deadstock-list-count"></span>
+            <div id="dashboard-pressure-category-filters"></div>
+            <div id="dashboard-arrival-category-filters"></div>
+            <div id="dashboard-deadstock-category-filters"></div>
+            <div id="dashboard-pressure-card-categories"></div>
+            <div id="dashboard-arrival-card-categories"></div>
+            <div id="dashboard-deadstock-card-categories"></div>
+            <tbody id="dashboard-risk-body"></tbody>
+            <tbody id="dashboard-arrival-body"></tbody>
+            <tbody id="dashboard-deadstock-body"></tbody>
+            <section id="dashboard-pressure-panel" hidden></section>
+            <section id="dashboard-arrival-panel" hidden></section>
+            <section id="dashboard-deadstock-panel" hidden></section>
+            <p id="dashboard-deadstock-development"></p>
+            <section id="inventory-detail-panel" hidden></section>
+            <input id="dashboard-pressure-search" />
+            <input id="dashboard-arrival-search" />
+            <input id="dashboard-deadstock-search" />
+          </div>
+
+          <section id="dash-sec-coordination" class="dash-scroll-section panel dash-coord-panel" data-dash-section="coordination" style="margin-top:20px">
+            <div class="section-title dash-coord-head">
+              <div>
+                <p class="eyebrow">COORDINATION BOARD</p>
+                <h3>입고조정 협의보드</h3>
+              </div>
+              <div class="dash-coord-actions">
+                <button type="button" class="secondary dash-btn-center" id="dash-coord-refresh">새로고침</button>
+                <button type="button" class="primary dash-btn-center" onclick="document.querySelector('[data-page=coordination]')?.click()">전체 화면</button>
+              </div>
+            </div>
+            <p class="inventory-panel-description">위: 상태 현황 · 아래: 상세 리스트. 행을 누르면 협의보드에서 수정할 수 있습니다.</p>
+
+            <div class="dash-kpi-row dash-coord-summary" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-top:12px">
+              <button type="button" class="dash-kpi-card is-active" data-coord-filter="회신대기">
+                <span class="dash-kpi-icon kpi-sky" aria-hidden="true">💬</span>
+                <span class="dash-kpi-label">회신대기</span>
+                <strong class="dash-kpi-value" id="dash-coord-waiting">-</strong>
+                <small class="dash-kpi-sub">업체 회신 대기</small>
+              </button>
+              <button type="button" class="dash-kpi-card" data-coord-filter="업체조율확정">
+                <span class="dash-kpi-icon kpi-orange" aria-hidden="true">🤝</span>
+                <span class="dash-kpi-label">업체조율확정</span>
+                <strong class="dash-kpi-value" id="dash-coord-confirmed">-</strong>
+                <small class="dash-kpi-sub">조율 완료</small>
+              </button>
+              <button type="button" class="dash-kpi-card" data-coord-filter="입고완료">
+                <span class="dash-kpi-icon kpi-green" aria-hidden="true">✅</span>
+                <span class="dash-kpi-label">입고완료</span>
+                <strong class="dash-kpi-value" id="dash-coord-done">-</strong>
+                <small class="dash-kpi-sub">입고 처리</small>
+              </button>
+            </div>
+
+            <div class="dash-coord-list-wrap" style="margin-top:16px">
+              <div class="section-title" style="margin-bottom:8px">
+                <div><p class="eyebrow">DETAIL</p><h3 style="font-size:16px;margin:0">상세 리스트</h3></div>
+                <span id="dash-coord-list-count" class="tag">0건</span>
+              </div>
+              <div class="inventory-table-wrap h-scroll-wrap">
+                <table class="dash-coord-table">
+                  <thead>
+                    <tr>
+                      <th>요청일</th>
+                      <th>상품</th>
+                      <th>업체</th>
+                      <th>요청내용</th>
+                      <th>회신</th>
+                      <th>확정일</th>
+                      <th>상태</th>
+                    </tr>
+                  </thead>
+                  <tbody id="dash-coord-list-body">
+                    <tr><td colspan="7" class="inventory-empty">불러오는 중…</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+<!-- 4. 재고현황 -->
+          <section id="dash-sec-ops" class="dash-scroll-section panel" data-dash-section="ops" style="margin-top:20px">
+            <div class="section-title dash-coord-head">
+              <div>
+                <p class="eyebrow">SKU STOCK GRID</p>
+                <h3>재고현황</h3>
+              </div>
+              <div class="dash-coord-actions">
+                <button type="button" class="secondary dash-btn-center" id="dash-ops-refresh">새로고침</button>
+                <button type="button" class="primary dash-btn-center" onclick="document.querySelector('[data-page=ops]')?.click()">전체 화면</button>
+              </div>
+            </div>
+            <p class="inventory-panel-description">위: 요약 · 아래: SKU 리스트. 메인창고 부족은 붉은색입니다. 행을 누르면 재고현황 전체 화면으로 이동합니다.</p>
+
+            <div class="dash-kpi-row" role="toolbar" aria-label="재고 요약 필터">
+              <button type="button" class="dash-kpi-card is-active" data-ops-filter="all" aria-pressed="true">
+                <span class="dash-kpi-icon kpi-blue" aria-hidden="true">📦</span>
+                <span class="dash-kpi-label">전체 현재고</span>
+                <strong class="dash-kpi-value" id="dash-ops-sku">-</strong>
+                <small class="dash-kpi-sub" id="dash-ops-sku-sub">취합 품목</small>
+              </button>
+              <button type="button" class="dash-kpi-card" data-ops-filter="risk" aria-pressed="false">
+                <span class="dash-kpi-icon kpi-red" aria-hidden="true">⚠️</span>
+                <span class="dash-kpi-label">부족 수량</span>
+                <strong class="dash-kpi-value risk" id="dash-ops-risk">-</strong>
+                <small class="dash-kpi-sub">메인 &lt; 요구량</small>
+              </button>
+              <button type="button" class="dash-kpi-card" data-ops-filter="pending" aria-pressed="false">
+                <span class="dash-kpi-icon kpi-sky" aria-hidden="true">🚚</span>
+                <span class="dash-kpi-label">출고대기 수량</span>
+                <strong class="dash-kpi-value" id="dash-ops-pending">-</strong>
+                <small class="dash-kpi-sub">요구량 합계</small>
+              </button>
+              <button type="button" class="dash-kpi-card" data-ops-filter="retailDone" aria-pressed="false">
+                <span class="dash-kpi-icon kpi-green" aria-hidden="true">📮</span>
+                <span class="dash-kpi-label">택배 출고완료</span>
+                <strong class="dash-kpi-value" id="dash-ops-retail-done">-</strong>
+                <small class="dash-kpi-sub">스마트스토어 완료</small>
+              </button>
+            </div>
+
+            <div class="dash-ops-list-tools">
+              <label class="dash-ops-check">
+                <input type="checkbox" id="dash-ops-minus-only" />
+                마이너스(출고 후 예상재고 &lt; 0)만 보기
+              </label>
+              <span id="dash-ops-list-count" class="tag">0건</span>
+            </div>
+
+
+            <div style="margin-top:16px">
+              <div class="section-title" style="margin-bottom:8px">
+                <div><p class="eyebrow">DETAIL</p><h3 style="font-size:16px;margin:0">SKU 상세 리스트</h3></div>
+              </div>
+              <div class="inventory-table-wrap h-scroll-wrap">
+                <table class="dash-coord-table">
+                  <thead>
+                    <tr>
+                      <th><button type="button" class="th-sort" data-ops-sort="productName">상품명</button></th>
+                      <th><button type="button" class="th-sort" data-ops-sort="demand">출고대기 수량</button></th>
+                      <th><button type="button" class="th-sort" data-ops-sort="retailDoneQty">택배출고량</button></th>
+                      <th><button type="button" class="th-sort" data-ops-sort="stockTotal">전체 현재고</button></th>
+                      <th><button type="button" class="th-sort" data-ops-sort="stockMain">메인창고 재고</button></th>
+                      <th><button type="button" class="th-sort" data-ops-sort="stockOther">기타창고 재고</button></th>
+                      <th><button type="button" class="th-sort" data-ops-sort="afterShip">출고 후 예상재고</button></th>
+                      <th><button type="button" class="th-sort" data-ops-sort="inboundDate">입고예정일</button></th>
+                      <th><button type="button" class="th-sort" data-ops-sort="inboundQty">입고예정수량</button></th>
+                    </tr>
+                  </thead>
+                  <tbody id="dash-ops-list-body">
+                    <tr><td colspan="8" class="inventory-empty">불러오는 중…</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+<p class="inventory-method-note">※ 재고 예측은 최근 입고수량·현재고·경과일을 이용한 추정치입니다. 실제 출고·API 연동 시 더 정확해집니다.</p>
+          <style>
+            .dash-scroll-section { scroll-margin-top: 24px; margin-top: 28px; }
+            .nav-item.nav-child.dash-active { background: #fff1e5; color: #c65b00; font-weight: 700; }
+
+            .dash-coord-head { align-items: center; }
+            .dash-coord-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+            .dash-btn-center {
+              display: inline-flex !important;
+              align-items: center !important;
+              justify-content: center !important;
+              text-align: center !important;
+              min-height: 40px;
+              padding: 0 16px !important;
+              line-height: 1 !important;
+            }
+            .dash-coord-table th, .dash-coord-table td { font-size: 12.5px; vertical-align: top; }
+            .dash-coord-table tbody tr { cursor: pointer; }
+            .dash-coord-table tbody tr:hover td { background: #fff8f1; }
+            /* ops on dash */
+            .ops-stock-risk, .ops-stock-risk strong { color: #c73c35 !important; font-weight: 800; }
+            .ops-row-risk td { background: #fff8f6; }
+            .h-scroll-wrap {
+              overflow-x: auto;
+              -webkit-overflow-scrolling: touch;
+              overscroll-behavior-x: contain;
+              max-width: 100%;
+            }
+            .h-scroll-wrap table {
+              width: 100%;
+              min-width: 720px;
+              max-width: none;
+            }
+            .page#dashboard .h-scroll-wrap table {
+              min-width: 100%;
+            }
+            tr[data-dash-ops-sku] { cursor: pointer; }
+            .dash-ops-filter-card {
+              display: flex;
+              flex-direction: column;
+              align-items: flex-start;
+              gap: 4px;
+              text-align: left;
+              cursor: pointer;
+              border: 1px solid #e8edf3;
+              background: #fff;
+              font: inherit;
+              width: 100%;
+              transition: box-shadow .15s, border-color .15s, transform .12s;
+            }
+            .dash-ops-filter-card:hover { border-color: #fdba74; box-shadow: 0 4px 14px rgba(234,88,12,.08); }
+            .dash-ops-filter-card.is-active {
+              border-color: #ea580c;
+              box-shadow: 0 0 0 2px rgba(234,88,12,.18);
+            }
+            .dash-ops-icon { font-size: 22px; line-height: 1; margin-bottom: 2px; }
+            .dash-kpi-row {
+              display: grid;
+              grid-template-columns: repeat(4, minmax(0, 1fr));
+              gap: 12px;
+              margin-top: 12px;
+            }
+            .dash-kpi-card {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              text-align: center;
+              gap: 4px;
+              padding: 16px 12px;
+              border-radius: 16px;
+              border: 1px solid #e8edf3;
+              background: #fff;
+              cursor: pointer;
+              font: inherit;
+              transition: border-color .15s, box-shadow .15s;
+            }
+            .dash-kpi-card:hover { border-color: #93c5fd; box-shadow: 0 4px 14px rgba(37,99,235,.08); }
+            .dash-kpi-card.is-active { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,.18); }
+            .dash-kpi-icon {
+              width: 40px; height: 40px; border-radius: 12px;
+              display: flex; align-items: center; justify-content: center;
+              font-size: 20px; margin-bottom: 4px;
+            }
+            .kpi-blue { background: #eff6ff; }
+            .kpi-red { background: #fff1f2; }
+            .kpi-sky { background: #f0f9ff; }
+            .kpi-green { background: #ecfdf5; }
+            .dash-kpi-label { font-size: 12px; font-weight: 700; color: #64748b; }
+            .dash-kpi-value { font-size: 26px; font-weight: 800; color: #0f172a; line-height: 1.15; }
+            .dash-kpi-value.risk { color: #e11d48; }
+            .dash-kpi-sub { font-size: 11px; color: #94a3b8; }
+
+            /* bot choices */
+            .bot-choice-list { display:grid; gap:8px; margin:10px 0; }
+            .bot-choice-btn, .bot-back-btn {
+              width:100%; text-align:left; border:1px solid #f0d8bd; background:#fff8f1; color:#c65b00;
+              border-radius:10px; padding:10px 12px; font:inherit; font-size:13px; font-weight:700; cursor:pointer;
+            }
+            .bot-choice-btn:hover, .bot-back-btn:hover { background:#ffedd5; }
+            .bot-back-btn { background:#fff; color:#475569; border-color:#e2e8f0; margin-top:6px; width:auto; display:inline-block; margin-right:6px; }
+            .bot-hint { font-size:12px; color:#64748b; margin:6px 0 10px; }
+            .bot-detail-list { margin:8px 0 8px 18px; font-size:13px; color:#334155; }
+            .bot-detail-list li { margin-bottom:6px; }
+            /* data-basis-compact */
+            .data-basis-editor { display: grid; gap: 8px; margin-top: 10px; }
+            .data-basis-editor label {
+              display: grid; grid-template-columns: 42px 1fr; align-items: center; gap: 8px;
+              font-size: 12px; font-weight: 700; color: #64748b;
+            }
+            .data-basis-input-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+            .data-basis-editor input[type="datetime-local"] {
+              width: 11.5rem; max-width: 100%; min-width: 0;
+              padding: 6px 8px; font-size: 12px; border: 1px solid #e2e8f0; border-radius: 8px;
+              background: #fff; color: #0f172a;
+            }
+            .data-basis-editor .compact-button { padding: 6px 10px; font-size: 12px; white-space: nowrap; }
+            .data-basis-editor-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+            .data-basis-card { max-width: 100%; overflow: hidden; }
+
+            /* column resize */
+            table.resizable-cols { table-layout: fixed; width: 100%; }
+            table.resizable-cols th { position: relative; overflow: hidden; text-overflow: ellipsis; }
+            table.resizable-cols th .col-resizer {
+              position: absolute; right: 0; top: 0; width: 6px; height: 100%;
+              cursor: col-resize; user-select: none; touch-action: none;
+            }
+            table.resizable-cols th .col-resizer:hover { background: rgba(234,88,12,.25); }
+            /* page-visibility-fix */
+            main > .page { display: none !important; }
+            main > .page.active { display: block !important; }
+            #dash-sec-coordination, #dash-sec-ops { display: block; width: 100%; }
+            .page#dashboard .panel,
+            .page#dashboard .dash-scroll-section.panel {
+              border-radius: 18px;
+              border: 1px solid #e8edf3;
+              background: #fff;
+              box-shadow: 0 1px 2px rgba(15,23,42,.04);
+              padding: 20px 22px 18px;
+            }
+            .page#dashboard .section-title h3 { letter-spacing: -0.02em; }
+            .page#dashboard .inventory-panel-description { margin-top: 4px; margin-bottom: 4px; }
+            .kpi-orange { background: #fff7ed; }
+            /* 표 꽉 차게 */
+            .page#dashboard .h-scroll-wrap {
+              width: 100%;
+              overflow-x: auto;
+            }
+            .page#dashboard .h-scroll-wrap table,
+            .page#dashboard .dash-coord-table,
+            .page#dashboard table {
+              width: 100% !important;
+              min-width: 100% !important;
+              max-width: none;
+              table-layout: auto;
+            }
+            .page#dashboard .dash-coord-table th,
+            .page#dashboard .dash-coord-table td {
+              white-space: nowrap;
+            }
+            .page#dashboard .dash-coord-table td:nth-child(1),
+            .page#dashboard .dash-coord-table td:nth-child(2),
+            .page#dashboard .dash-coord-table th:nth-child(1),
+            .page#dashboard .dash-coord-table th:nth-child(2) {
+              white-space: normal;
+            }
+            .page#dashboard .dash-kpi-row { margin-bottom: 4px; }
+            .page#dashboard .dash-ops-list-tools { margin-top: 16px; }
+            .page#ops .h-scroll-wrap { width: 100%; overflow-x: auto; }
+            .page#ops .h-scroll-wrap table,
+            .page#ops .ops-sku-grid {
+              width: 100% !important;
+              min-width: 100% !important;
+            }
+
+            .dash-ops-list-tools {
+              display: flex; align-items: center; justify-content: space-between;
+              gap: 12px; flex-wrap: wrap; margin: 14px 0 8px;
+            }
+            .dash-ops-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #475569; font-weight: 600; }
+            .th-sort {
+              border: 0; background: transparent; font: inherit; font-weight: 700;
+              color: inherit; cursor: pointer; padding: 0; display: inline-flex; align-items: center; gap: 4px;
+            }
+            .th-sort::after { content: "↕"; font-size: 10px; opacity: .45; }
+            .th-sort.is-asc::after { content: "↑"; opacity: 1; }
+            .th-sort.is-desc::after { content: "↓"; opacity: 1; }
+            @media (max-width: 900px) {
+              .dash-kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            }
+            .dash-ops-filter-card > span:not(.dash-ops-icon) { font-size: 12px; color: #64748b; font-weight: 600; }
+            .dash-ops-filter-card > b { font-size: 28px; line-height: 1.1; color: #0f172a; }
+            .dash-ops-filter-card.danger > b { color: #c73c35; }
+            .dash-ops-filter-card.warning > b { color: #c65b00; }
+            .dash-ops-filter-card > small { font-size: 11px; color: #94a3b8; }
+
+          </style>
+        </section>
+
+        <section id="ops" class="page">
+          <div class="page-heading inventory-dashboard-heading">
+            <div>
+              <p class="eyebrow">SKU · WAREHOUSE · WHOLESALE · COURIER</p>
+              <h2>재고현황</h2>
+              <p>품목별 창고존 재고, 도매 출고대기(업체별), 택배 출고, 실출고 내역을 한곳에서 확인합니다.</p>
+            </div>
+            <div class="history-actions">
+              <button class="secondary" type="button" id="ops-force-demo-btn">데모 표시</button>
+              <button class="primary" type="button" id="ops-refresh-btn">새로고침</button>
+            </div>
+          </div>
+          <p id="ops-status" class="inventory-dashboard-status">대기 중</p>
+
+          <div class="dash-kpi-row ops-summary-cards">
+            <button type="button" class="dash-kpi-card is-active" data-ops-page-filter="all">
+              <span class="dash-kpi-icon kpi-blue">📦</span>
+              <span class="dash-kpi-label">전체 현재고</span>
+              <strong class="dash-kpi-value" id="ops-sum-stock">-</strong>
+              <small class="dash-kpi-sub" id="ops-sum-sku">취합 품목</small>
+            </button>
+            <button type="button" class="dash-kpi-card" data-ops-page-filter="risk">
+              <span class="dash-kpi-icon kpi-red">⚠️</span>
+              <span class="dash-kpi-label">부족 수량</span>
+              <strong class="dash-kpi-value risk" id="ops-sum-risk">-</strong>
+              <small class="dash-kpi-sub">메인 &lt; 요구량</small>
+            </button>
+            <button type="button" class="dash-kpi-card" data-ops-page-filter="pending">
+              <span class="dash-kpi-icon kpi-sky">🚚</span>
+              <span class="dash-kpi-label">출고대기 수량</span>
+              <strong class="dash-kpi-value" id="ops-sum-wpend">-</strong>
+              <small class="dash-kpi-sub">요구량 합계</small>
+            </button>
+            <button type="button" class="dash-kpi-card" data-ops-page-filter="retailDone">
+              <span class="dash-kpi-icon kpi-green">📮</span>
+              <span class="dash-kpi-label">택배 출고완료</span>
+              <strong class="dash-kpi-value" id="ops-sum-retail">-</strong>
+              <small class="dash-kpi-sub">스마트스토어 완료</small>
+            </button>
+          </div>
+          <div class="dash-ops-list-tools">
+            <label class="dash-ops-check"><input type="checkbox" id="ops-minus-only" /> 마이너스(출고 후 예상재고 &lt; 0)만 보기</label>
+          </div>
+
+          <div class="ops-toolbar">
+            <div class="ops-tabs" role="tablist">
+              <button type="button" class="ops-tab ops-tab-active" data-ops-tab="grid">통합 현황</button>
+              <button type="button" class="ops-tab" data-ops-tab="zone">창고존별 재고</button>
+              <button type="button" class="ops-tab" data-ops-tab="wholesale">도매 출고</button>
+              <button type="button" class="ops-tab" data-ops-tab="retail">택배 출고</button>
+            </div>
+            <input id="ops-sku-search" type="search" placeholder="SKU · 상품명 · 업체 검색" class="ops-search" />
+          </div>
+
+          <!-- 통합 그리드 -->
+          <section class="panel ops-panel" data-ops-panel="grid">
+            <div class="section-title"><div><p class="eyebrow">INTEGRATED</p><h3>SKU 통합 현황</h3></div></div>
+            <p class="inventory-panel-description">출고대기 · 전체/메인/기타 재고 · 출고 후 예상재고 · 입고예정. 예상재고·메인 부족은 붉은색.</p>
+            <div class="inventory-table-wrap h-scroll-wrap">
+              <table class="ops-sku-grid">
+                <thead>
+                  <tr>
+                    <th><button type="button" class="th-sort" data-ops-page-sort="productName">상품명</button></th>
+                    <th><button type="button" class="th-sort" data-ops-page-sort="demand">출고대기 수량</button></th>
+                    <th><button type="button" class="th-sort" data-ops-page-sort="retailDoneQty">택배출고량</button></th>
+                    <th><button type="button" class="th-sort" data-ops-page-sort="stockTotal">전체 현재고</button></th>
+                    <th><button type="button" class="th-sort" data-ops-page-sort="stockMain">메인창고 재고</button></th>
+                    <th><button type="button" class="th-sort" data-ops-page-sort="stockOther">기타창고 재고</button></th>
+                    <th><button type="button" class="th-sort" data-ops-page-sort="afterShip">출고 후 예상재고</button></th>
+                    <th><button type="button" class="th-sort" data-ops-page-sort="inboundDate">입고예정일</button></th>
+                    <th><button type="button" class="th-sort" data-ops-page-sort="inboundQty">입고예정수량</button></th>
+                    <th>액션</th>
+                  </tr>
+                </thead>
+                <tbody id="ops-sku-grid-body"><tr><td colspan="9">불러오는 중…</td></tr></tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- 창고존별 -->
+          <section class="panel ops-panel" data-ops-panel="zone" hidden>
+            <div class="section-title"><div><p class="eyebrow">BY WAREHOUSE ZONE</p><h3>품목별 창고존 재고</h3></div></div>
+            <p class="inventory-panel-description">SKU × 창고존 매트릭스. 메인창고 부족분은 붉은색으로 표시됩니다.</p>
+            <div class="inventory-table-wrap h-scroll-wrap">
+              <table class="ops-sku-grid">
+                <thead id="ops-zone-head"></thead>
+                <tbody id="ops-zone-body"><tr><td colspan="10">불러오는 중…</td></tr></tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- 도매 출고 -->
+          <section class="panel ops-panel" data-ops-panel="wholesale" hidden>
+            <div class="section-title"><div><p class="eyebrow">WHOLESALE</p><h3>도매 출고대기</h3></div></div>
+            <p class="inventory-panel-description"><strong>어떤 품목</strong>을 <strong>어떤 도매업체</strong>에서 출고 대기 중인지 확인합니다.</p>
+            <div class="inventory-table-wrap h-scroll-wrap">
+              <table>
+                <thead>
+                  <tr><th>주문번호</th><th>품목</th><th>도매업체</th><th>수량</th><th>출고창고</th><th>상태</th><th>요청일시</th></tr>
+                </thead>
+                <tbody id="ops-wholesale-body"><tr><td colspan="7">불러오는 중…</td></tr></tbody>
+              </table>
+            </div>
+            <div class="section-title" style="margin-top:20px"><div><p class="eyebrow">SHIPPED</p><h3>도매 실출고 내역</h3></div></div>
+            <div class="inventory-table-wrap h-scroll-wrap">
+              <table>
+                <thead>
+                  <tr><th>주문번호</th><th>품목</th><th>도매업체</th><th>수량</th><th>출고창고</th><th>상태</th><th>출고일시</th></tr>
+                </thead>
+                <tbody id="ops-wholesale-done-body"><tr><td colspan="7">불러오는 중…</td></tr></tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- 택배 -->
+          <section class="panel ops-panel" data-ops-panel="retail" hidden>
+            <div class="section-title"><div><p class="eyebrow">RETAIL COURIER</p><h3>택배 출고현황</h3></div></div>
+            <p class="inventory-panel-description">채널·택배사·송장·상태(출고대기 / 배송중 / 완료)를 함께 봅니다.</p>
+            <div class="inventory-table-wrap h-scroll-wrap">
+              <table>
+                <thead>
+                  <tr><th>주문번호</th><th>품목</th><th>수량</th><th>채널</th><th>택배/송장</th><th>상태</th><th>출고일시</th></tr>
+                </thead>
+                <tbody id="ops-retail-body"><tr><td colspan="7">불러오는 중…</td></tr></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section id="ops-admin-api-panel" class="panel" style="margin-top:16px" hidden>
+            <div class="section-title"><div><p class="eyebrow">ADMIN · API KEYS</p><h3>연동 설정 (관리자 전용)</h3></div></div>
+            <p class="inventory-panel-description">이카운트·택배·3PL 프록시 URL과 키를 저장하면 동일 화면으로 실데이터를 불러옵니다.</p>
+            <div style="display:grid;gap:14px;max-width:720px">
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" id="ops-use-demo" checked /> 데모 데이터 우선 사용</label>
+              <fieldset style="border:1px solid #e5e7eb;border-radius:10px;padding:12px">
+                <legend style="font-size:12px;font-weight:700;color:#64748b">이카운트</legend>
+                <label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:8px"><input type="checkbox" id="ops-ecount-enabled" /> 사용</label>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                  <label style="font-size:12px">ZONE<input id="ops-ecount-zone" style="display:block;width:100%;margin-top:4px;padding:8px;border:1px solid #e5e7eb;border-radius:8px" /></label>
+                  <label style="font-size:12px">회사코드<input id="ops-ecount-com" style="display:block;width:100%;margin-top:4px;padding:8px;border:1px solid #e5e7eb;border-radius:8px" /></label>
+                  <label style="font-size:12px">USER ID<input id="ops-ecount-user" style="display:block;width:100%;margin-top:4px;padding:8px;border:1px solid #e5e7eb;border-radius:8px" /></label>
+                  <label style="font-size:12px">API 키<input id="ops-ecount-key" type="password" style="display:block;width:100%;margin-top:4px;padding:8px;border:1px solid #e5e7eb;border-radius:8px" /></label>
+                </div>
+                <label style="font-size:12px;display:block;margin-top:8px">프록시 URL<input id="ops-ecount-proxy" style="display:block;width:100%;margin-top:4px;padding:8px;border:1px solid #e5e7eb;border-radius:8px" /></label>
+              </fieldset>
+              <fieldset style="border:1px solid #e5e7eb;border-radius:10px;padding:12px">
+                <legend style="font-size:12px;font-weight:700;color:#64748b">택배</legend>
+                <label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:8px"><input type="checkbox" id="ops-courier-enabled" /> 사용</label>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                  <label style="font-size:12px">제공사<input id="ops-courier-provider" style="display:block;width:100%;margin-top:4px;padding:8px;border:1px solid #e5e7eb;border-radius:8px" /></label>
+                  <label style="font-size:12px">API 키<input id="ops-courier-key" type="password" style="display:block;width:100%;margin-top:4px;padding:8px;border:1px solid #e5e7eb;border-radius:8px" /></label>
+                </div>
+                <label style="font-size:12px;display:block;margin-top:8px">프록시 URL<input id="ops-courier-proxy" style="display:block;width:100%;margin-top:4px;padding:8px;border:1px solid #e5e7eb;border-radius:8px" /></label>
+              </fieldset>
+              <fieldset style="border:1px solid #e5e7eb;border-radius:10px;padding:12px">
+                <legend style="font-size:12px;font-weight:700;color:#64748b">3PL</legend>
+                <label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:8px"><input type="checkbox" id="ops-tpl-enabled" /> 사용</label>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                  <label style="font-size:12px">제공사<input id="ops-tpl-provider" style="display:block;width:100%;margin-top:4px;padding:8px;border:1px solid #e5e7eb;border-radius:8px" /></label>
+                  <label style="font-size:12px">API 키<input id="ops-tpl-key" type="password" style="display:block;width:100%;margin-top:4px;padding:8px;border:1px solid #e5e7eb;border-radius:8px" /></label>
+                </div>
+                <label style="font-size:12px;display:block;margin-top:8px">프록시 URL<input id="ops-tpl-proxy" style="display:block;width:100%;margin-top:4px;padding:8px;border:1px solid #e5e7eb;border-radius:8px" /></label>
+              </fieldset>
+              <button type="button" class="primary" id="ops-save-api-btn">API 설정 저장</button>
+            </div>
+          </section>
+
+          <style>
+            .ops-summary-cards { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+            .ops-toolbar { display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; margin: 16px 0 12px; }
+            .ops-tabs { display:flex; flex-wrap:wrap; gap:6px; background:#f8fafc; padding:4px; border-radius:12px; border:1px solid #eef2f7; }
+            .ops-tab { border:0; background:transparent; padding:8px 14px; border-radius:9px; font:inherit; font-size:13px; font-weight:600; color:#64748b; cursor:pointer; }
+            .ops-tab:hover { color:#0f172a; }
+            .ops-tab-active { background:#fff; color:#c65b00; box-shadow:0 1px 3px rgba(15,23,42,.08); }
+            .ops-search { padding:9px 12px; border:1px solid #e5e7eb; border-radius:10px; min-width:240px; font:inherit; font-size:13px; }
+            .ops-sku-grid th, .ops-sku-grid td { font-size:12.5px; vertical-align:top; }
+            .ops-sku-grid thead th { background:#f8fafc; white-space:nowrap; }
+            .ops-stock-risk, .ops-stock-risk strong, .ops-risk-text { color:#c73c35 !important; font-weight:800; }
+            .ops-row-risk td { background:#fff8f6; }
+            .ops-muted { color:#64748b; }
+            .ops-move-badge { display:inline-block; padding:3px 8px; border-radius:999px; font-size:11px; font-weight:700; }
+            .ops-move-badge.mov-need { background:#fee2e2; color:#991b1b; }
+            .ops-move-badge.mov-ordered { background:#fef3c7; color:#92400e; }
+            .ops-move-badge.mov-transit { background:#dbeafe; color:#1e40af; }
+            .ops-move-badge.mov-done { background:#d1fae5; color:#065f46; }
+            .ops-move-badge.mov-none { background:#f1f5f9; color:#64748b; }
+            .ops-pill { display:inline-block; padding:3px 8px; border-radius:999px; font-size:11px; font-weight:700; background:#f1f5f9; color:#475569; }
+            .ops-pill.wait { background:#fef3c7; color:#92400e; }
+            .ops-pill.move { background:#dbeafe; color:#1e40af; }
+            .ops-pill.ok { background:#d1fae5; color:#065f46; }
+            .ops-pill.risk { background:#fee2e2; color:#991b1b; }
+            .ops-action-btn { padding:6px 10px !important; font-size:12px !important; white-space:nowrap; }
+            .ops-action-idle { color:#94a3b8; }
+            @media (max-width: 900px) {
+              .ops-summary-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+              .ops-search { min-width: 100%; }
+            }
+          </style>
+        </section>
+
+        <section id="mapping" class="page"><div class="page-heading"><div><p class="eyebrow">01 · AUTOMATIC MAPPING</p><h2>주문정보 자동 매핑</h2><p>기존 주문 양식과 신규 매핑점검 양식을 자동 구분해 분석합니다.</p></div><span class="fixed-pill">● 공용 마스터 적용 중</span></div><div class="two-column"><section class="panel upload"><h3>주문정보 파일 업로드</h3><p>기존 주문파일 또는 판매상품 정보·연결된 상품명이 포함된 매핑점검 파일</p><label class="dropzone"><input id="order-file" type="file" accept=".xlsx,.xls,.csv" multiple /><strong>파일 선택</strong><span id="order-file-name">파일을 선택하세요</span></label><button id="start-mapping" class="primary full">자동 매핑 시작</button></section><section class="panel side-summary"><p class="eyebrow">CURRENT MASTER</p><h3 id="fixed-master-name"></h3><p id="fixed-master-date"></p><hr /><b>매핑 기준</b><ul><li>같은 주문번호의 최소수량 합산</li><li>상품명·맛·용량·색상·크기·타입·옵션 비교</li><li>박스×개입(입수) 단위 환산 후 수량 검증</li><li>연결상품명 규격(개입·p·세트) 반영</li><li>구성품 누락·학습 매핑 적용</li></ul></section></div><section id="mapping-result" class="panel result" hidden><div class="section-title"><h3>매핑 결과 상세</h3><span class="tag green">상세 확인</span></div><table><thead><tr><th>주문번호</th><th>주문내용 / 옵션</th><th>자사상품</th><th>주문수량</th><th>매핑수량</th><th>최종판정</th><th>판정내용</th></tr></thead><tbody id="mapping-preview-body"></tbody></table></section></section>
+
+        <section id="review" class="page"><div class="page-heading"><div><p class="eyebrow">02 · REVIEW</p><h2>매핑 수정</h2><p>주문 매핑 결과 중 수정이 필요한 항목을 그룹화하여 보여줍니다.</p></div></div><section id="review-result" class="panel result"><div class="section-title"><h3>수정 필요 항목</h3><span class="tag red" id="review-count">0건</span></div><table><thead><tr><th>주문번호</th><th>주문정보</th><th>자사상품 및 매핑수량</th><th>확인 필요 사항</th><th>정답 텍스트 (상품 / 수량)</th><th>수정 반영</th></tr></thead><tbody id="review-items-body"></tbody></table></section></section>
+
+        <section id="master" class="page"><div class="page-heading"><div><p class="eyebrow">MASTER DATA</p><h2>자사상품 마스터</h2><p>고정된 파일은 다음 모든 매핑 작업의 기준이 됩니다.</p></div><span class="fixed-pill">● 공용 기준 데이터</span></div><div class="two-column"><section class="panel upload"><h3>새 마스터 파일로 교체</h3><p>여러 파일을 동시에 등록할 수 있고, 마지막 파일이 현재 기준으로 고정됩니다.</p><label class="dropzone"><input id="master-file" type="file" accept=".xlsx,.xls,.csv" multiple /><strong>자사상품 파일 선택</strong><span id="master-file-name">파일을 선택하세요</span></label><button id="fix-master" class="primary full">공용 마스터로 고정</button></section><section class="panel side-summary"><p class="eyebrow">CURRENT FIXED FILE</p><h3 id="fixed-master-name"></h3><p id="fixed-master-date"></p><hr /><b>교체 정책</b><ul><li>기존 파일은 버전 이력으로 보관</li><li>진행 중인 작업은 기존 기준 유지</li><li>새 작업부터 새 기준 적용</li></ul></section></div><section class="panel result"><div class="section-title"><h3>고정 파일 목록</h3><div class="history-actions"><button class="secondary" data-master-export="original">선택 원본 다운로드</button><button class="secondary" id="release-master">현재 고정 해제</button><button class="secondary" id="delete-masters">선택 삭제</button></div></div><table><thead><tr><th>선택</th><th>파일명</th><th>고정일</th><th>상태</th><th>비고</th></tr></thead><tbody id="master-files-body"></tbody></table></section></section>
+
+
+        <section id="inbound" class="page"><div class="page-heading"><div><p class="eyebrow">INBOUND SCHEDULE</p><h2>입고예정 품목</h2><p>데모 일정과 컨테이너 입고파일에서 선택한 기간의 예정 품목과 유통기한을 확인합니다.</p></div><div class="history-actions"><a class="secondary button-link" href="#inbound" data-portfolio-schedule>데모 일정 보기</a><button class="secondary" id="paste-inbound-data" type="button">데이터 붙여넣기</button><button class="secondary" id="refresh-inbound" type="button">새로고침</button></div></div><section class="panel" style="padding:18px 24px"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><button class="secondary inbound-period-btn active" id="inbound-this-week" type="button">이번주</button><button class="secondary inbound-period-btn" id="inbound-next-week" type="button">다음주</button><span style="color:#74787c;font-size:13px;margin:0 6px">|</span><label style="font-size:13px;color:#74787c">기간 직접 설정</label><input type="date" id="inbound-date-from" style="padding:7px 10px;border:1px solid #e8e9ea;border-radius:7px;font-size:13px" /><span style="color:#74787c">~</span><input type="date" id="inbound-date-to" style="padding:7px 10px;border:1px solid #e8e9ea;border-radius:7px;font-size:13px" /><button class="primary" id="inbound-custom-range" type="button" style="padding:8px 14px;font-size:13px">조회</button></div></section><section class="panel master-status"><div><p class="eyebrow" id="inbound-period-eyebrow">THIS WEEK</p><div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;"><h3 id="inbound-week-label" style="margin:0;">이번주 기준 계산 중</h3><span id="inbound-holiday-label" style="background:#fff; color:#e53935; padding:2px 6px; border-radius:4px; font-weight:800; font-size:12px; display:none; border:1px solid #f0d8bd;"></span></div><p id="inbound-source-status">데모 데이터를 불러오고 있습니다.</p></div><span class="tag green" id="inbound-count">0건</span></section><section class="panel result"><div class="section-title"><h3>입고예정 상세</h3><span class="tag orange">전체 데이터 기준</span></div><table class="inbound-fit-table" data-fit-viewport="true" data-fit-weights="7,8,15,5,8,6,6,6,9,6,6,7,11,8"><thead><tr><th>입고예정일</th><th>바코드</th><th>상품명</th><th>현재고</th><th>일평균 소진량</th><th>최근입고수량</th><th>입고예정수량</th><th>입고구분</th><th>컨테이너/BL</th><th>제조일자</th><th>유통기한</th><th>입고파일명</th><th>메모</th><th>비고(확정일)</th></tr></thead><tbody id="weekly-inbound-body"><tr><td colspan="14">데이터를 불러오는 중입니다.</td></tr></tbody></table></section><section id="inbound-history-panel" class="inbound-history-panel" aria-live="polite" hidden></section></section>
+
+<section id="soldout" class="page"><div class="page-heading"><div><p class="eyebrow">SOLD OUT LIST</p><h2>품절 리스트</h2><p>품절일이 기록됐거나 선택한 현재고 기준 이하인 품목을 확인합니다. 양수 재고는 품절임박으로 구분합니다.</p></div><div class="history-actions"><a class="secondary button-link" href="#inbound" data-portfolio-schedule>데모 일정 보기</a><button class="secondary" id="refresh-soldout" type="button">새로고침</button></div></div><section class="panel master-status soldout-summary"><div><p class="eyebrow">SOLD OUT</p><h3 id="soldout-label">품절 데이터 계산 중</h3><p id="soldout-source-status">데모 데이터를 불러오고 있습니다.</p></div><label class="soldout-threshold-control">현재고 기준<select id="soldout-stock-threshold" aria-label="품절로 볼 현재고 상한"><option value="0">0개 이하</option><option value="100">100개 이하</option><option value="200">200개 이하</option><option value="300">300개 이하</option><option value="400">400개 이하</option><option value="500">500개 이하</option><option value="600">600개 이하</option><option value="700">700개 이하</option><option value="800">800개 이하</option><option value="900">900개 이하</option><option value="1000">1,000개 이하</option></select></label><span class="tag red" id="soldout-count">0건</span></section><section class="panel result"><div class="section-title"><h3>품절 상세</h3><span class="tag orange">전체 데이터 기준</span></div><table class="soldout-fit-table" data-fit-viewport="true" data-fit-weights="9,17,5,8,10,9,6,9,6,10,11"><thead><tr><th>바코드</th><th>상품명</th><th>현재고</th><th>일평균 소진량</th><th>상태 / 품절일</th><th>최근입고내용</th><th>최근입고수량</th><th>다음입고내용</th><th>다음 입고예정수량</th><th>비고(확정일)</th><th>단종</th></tr></thead><tbody id="soldout-body"><tr><td colspan="11">데이터를 불러오는 중입니다.</td></tr></tbody></table></section><section id="soldout-history-panel" class="soldout-history-panel" aria-live="polite" hidden></section></section>
+
+        <section id="coordination" class="page">
+          <div class="page-heading">
+            <div>
+              <p class="eyebrow">INBOUND COORDINATION</p>
+              <h2>입고조정 협의보드</h2>
+              <p>업체와 주고받은 입고조정·긴급요청을 기록합니다. 확정입고일이 입력되면 입고예정 비고(확정일)에 반영되며, 아래 앞당겨진 품목도 함께 확인합니다.</p>
+            </div>
+            <div class="history-actions">
+              <button type="button" class="secondary" id="coord-export-btn">엑셀용 내보내기</button>
+              <button type="button" class="secondary" id="coord-import-btn">엑셀 불러오기</button>
+              <button type="button" class="primary" id="coord-add-btn">+ 협의 기록 추가</button>
+            </div>
+          </div>
+
+          <section class="panel">
+            <div class="section-title">
+              <div>
+                <h3>협의 현황</h3>
+                <p class="inventory-panel-description" style="margin:4px 0 0">요청 → 회신 → 확정 순으로 기록됩니다.</p>
+              </div>
+              <span class="tag orange" id="coord-count">0건</span>
+            </div>
+            <div class="inventory-panel-controls" style="margin-bottom:12px;padding:0 22px 8px;display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+              <form class="inventory-search-form" id="coord-search-form" role="search" style="display:flex;gap:6px">
+                <input id="coord-search" type="search" placeholder="상품명 · 바코드 · 업체 검색" aria-label="협의 검색" />
+                <button type="submit" aria-label="검색">🔍</button>
+              </form>
+              <label style="font-size:12px;display:flex;align-items:center;gap:6px">
+                <input type="checkbox" id="coord-pending-only" /> 회신/확정 대기만
+              </label>
+            </div>
+            <div class="inventory-table-wrap h-scroll-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>요청일</th>
+                    <th>상품명 / 바코드</th>
+                    <th>업체</th>
+                    <th>요청내용</th>
+                    <th>회신</th>
+                    <th>확정입고일</th>
+                    <th>유형</th>
+                    <th>메모</th>
+                    <th>상태</th>
+                    <th>요청자</th>
+                    <th>관리</th>
+                  </tr>
+                </thead>
+                <tbody id="coord-body">
+                  <tr><td colspan="9" class="inventory-empty">기록된 협의 내역이 없습니다. [+ 협의 기록 추가]로 등록하세요.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel" style="margin-top:18px">
+            <div class="section-title">
+              <div>
+                <h3>입고 앞당겨진 품목</h3>
+                <p class="inventory-panel-description" style="margin:4px 0 0">확정일이 원본 예정일보다 빠른 품목입니다.</p>
+              </div>
+              <span class="tag green" id="advanced-count">0건</span>
+            </div>
+            <div class="inventory-panel-controls" style="margin-bottom:12px;padding:0 22px 8px">
+              <form class="inventory-search-form" id="advanced-search-form" role="search" style="display:flex;gap:6px">
+                <input id="advanced-search" type="search" placeholder="상품명 또는 바코드" aria-label="앞당김 검색" />
+                <button type="submit" aria-label="검색">🔍</button>
+              </form>
+            </div>
+            <div class="inventory-table-wrap h-scroll-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>상품명</th>
+                    <th>바코드</th>
+                    <th>원본 예정일</th>
+                    <th>확정일</th>
+                    <th>앞당김</th>
+                    <th>업체</th>
+                    <th>최신 회신 요약</th>
+                    <th>상태</th>
+                  </tr>
+                </thead>
+                <tbody id="advanced-body">
+                  <tr><td colspan="8" class="inventory-empty">앞당겨진 입고 내역이 없습니다.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+          <input type="file" id="coord-file-input" accept=".xlsx,.xls,.csv" hidden />
+        </section>
+
+
+        <section id="smartstore" class="page"><div class="page-heading"><div><p class="eyebrow">SMARTSTORE RESERVED STOCK</p><h2>스마트스토어용 재고</h2><p>현재고 중 스마트스토어 출고 전용 수량을 상품코드별로 분리합니다.</p></div><div class="history-actions"><button id="download-smartstore-template" class="secondary" type="button">양식 파일 내려받기</button><label class="secondary button-link file-button">파일 업로드<input id="smartstore-file" type="file" accept=".xlsx,.xls" hidden /></label></div></div><section class="panel tool-form-panel"><form id="smartstore-form" class="inventory-tool-form"><label>상품코드<input id="smartstore-product-code" required placeholder="상품코드 또는 바코드" /></label><label>전용수량<input id="smartstore-quantity" type="number" min="1" step="1" required /></label><button class="primary" type="submit">전용 재고 등록</button></form><p id="smartstore-file-status" class="form-help">엑셀 머리글은 바코드, 전용수량입니다. 모든 행이 유효할 때만 한 번에 반영됩니다.</p></section><section class="panel result"><div class="section-title"><h3>스마트스토어 전용 재고 목록</h3><span id="smartstore-count" class="tag blue">0건</span></div><table><thead><tr><th>상품코드</th><th>상품명</th><th>전체 현재고</th><th>일반 판매 가능</th><th>스마트스토어 전용</th><th>상태</th><th>관리</th></tr></thead><tbody id="smartstore-body"><tr><td colspan="7">등록된 전용 재고가 없습니다.</td></tr></tbody></table></section></section>
+
+        <section id="expiry" class="page"><div class="page-heading"><div><p class="eyebrow">EXPIRY FIFO</p><h2>유통기한 관리</h2><p>입고 로트를 등록하고 유통기한 공란 로트부터 FIFO로 현재 보유 재고를 계산합니다.</p></div></div><section class="panel tool-form-panel"><h3>수기 입고 등록</h3><form id="expiry-manual-form" class="inventory-tool-form expiry-form"><label>입고일<input id="expiry-inbound-date" type="date" required /></label><label>바코드<input id="expiry-barcode" required /></label><label>입고수량<input id="expiry-quantity" type="number" min="1" step="1" required /></label><label>제조일자<input id="expiry-manufactured-date" type="date" /></label><label>유통기한<input id="expiry-date" type="date" /></label><label>비고<input id="expiry-note" /></label><button class="primary" type="submit">수기 등록</button></form><p class="form-help">제조일자 또는 유통기한 하나만 입력하면 18개월-1일 규칙으로 반대 날짜를 자동 산출합니다. 둘 다 비워도 등록됩니다.</p></section><section class="panel tool-form-panel"><h3>컨테이너 입고 엑셀 첨부</h3><label class="dropzone"><input id="expiry-file" type="file" accept=".xlsx,.xls" /><strong>엑셀 파일 선택</strong><span id="expiry-file-name">파일을 선택하세요</span></label><p class="form-help">바코드·낱개수량(또는 수량) 열을 읽습니다. 파일 선택 후 제조일·유통기한 일괄 입력 창이 열리며, 제조일만 넣으면 18개월-1일 규칙으로 유통기한을 계산합니다. 표에서도 날짜를 수정할 수 있습니다.</p></section><section class="panel result"><div class="section-title"><h3>현재 보유 유통기한 로트</h3><span id="expiry-count" class="tag green">0건</span></div><table><thead><tr><th>입고일</th><th>바코드</th><th>상품명</th><th>입고수량</th><th>제조일자</th><th>유통기한</th><th>비고</th><th>원본 파일</th><th>관리</th></tr></thead><tbody id="expiry-body"><tr><td colspan="9">등록된 입고 로트가 없습니다.</td></tr></tbody></table></section></section>
+
+        <section id="history" class="page"><div class="page-heading"><div><p class="eyebrow">ACTIVITY</p><h2>작업 이력</h2><p>체크한 작업의 매핑검토 상세 내용을 내려받습니다.</p></div><div class="history-actions"><button class="secondary" data-history-export="googleSheets">선택 매핑검토 CSV</button><button class="secondary" data-history-export="excel">선택 매핑검토 엑셀</button></div></div><section class="panel result"><table><thead><tr><th>선택</th><th>작업 파일</th><th>적용 마스터</th><th>상태</th><th>실행 시각</th></tr></thead><tbody id="job-history"></tbody></table></section></section>
+
+        <section id="learning" class="page"><div class="page-heading"><div><p class="eyebrow">LEARNED DATA</p><h2>학습 데이터</h2><p>수동 확인 후 '승인하고 학습'을 완료하여 시스템이 기억하게 된 매핑 규칙입니다.</p></div><div class="history-actions"><button class="secondary" id="clear-learning-btn" style="color:#c73c35; border-color:#c73c35;">전체 초기화</button></div></div><section class="panel result"><div class="section-title"><h3>학습된 매핑 목록</h3><span class="tag green" id="learning-total-count">0건</span></div><table><thead><tr><th>등록일</th><th>원본 주문내용</th><th>옵션1/2</th><th>매핑 상품명</th><th>반영 수량</th></tr></thead><tbody id="learning-history-body"><tr><td colspan="5">학습된 데이터가 없습니다.</td></tr></tbody></table></section></section>
+
+      </main>
+    </div><button id="bot-toggle" class="bot-toggle" type="button" aria-label="설명 봇 열기">?</button><aside id="bot-drawer" class="bot-drawer" hidden><div class="bot-drawer-head"><div><p class="eyebrow">HELP BOT</p><h3>무엇을 도와드릴까요?</h3></div><div class="bot-head-actions"><button id="admin-access-toggle" class="admin-access-button" type="button">관리자모드 사용하기</button><button id="bot-close" type="button" aria-label="설명 봇 닫기">×</button></div></div><div class="bot-prompts"><button type="button" data-bot-prompt="조스한입 치킨소프트트릿 150g 바코드 알려줘">상품명으로 바코드 찾기</button><button type="button" data-bot-prompt="8809911001001">바코드로 상품명 찾기</button><button type="button" data-bot-prompt="더조스몰에서 가장 주문 많은 품목은 뭐야?">주문사 인기품목 분석</button><button type="button" data-bot-prompt="8809911001001 다음입고 알려줘">최근/다음 입고 확인</button></div><div id="admin-gate" class="admin-gate" hidden><button id="admin-mode-toggle" class="secondary" type="button">관리자 모드</button><button id="forgot-admin-password" class="secondary" type="button">비밀번호 찾기</button><div id="admin-login" class="admin-login" hidden><input id="admin-password" type="password" placeholder="관리자 비밀번호" /><button id="admin-login-button" class="secondary" type="button">확인</button></div></div><div id="bot-admin-settings" class="bot-settings" hidden><label>Gemini API 키<input id="gemini-api-key" type="password" placeholder="Google AI Studio API 키" /></label><label>모델<input id="gemini-model" type="text" value="gemini-3.5-flash" /></label><button id="save-gemini-key" class="secondary">키 저장</button><div class="admin-security"><p class="eyebrow">ADMIN SECURITY</p><button id="request-password-change-code" class="secondary" type="button">비밀번호 변경 인증코드 발송</button><div class="admin-login"><input id="admin-change-code" type="text" placeholder="인증코드" /><input id="new-admin-password" type="password" placeholder="새 비밀번호" /><button id="change-admin-password" class="secondary" type="button">비밀번호 변경</button></div></div></div><div id="password-recovery" class="bot-settings" hidden><p class="eyebrow">PASSWORD RECOVERY</p><p>포트폴리오에서는 인증코드를 화면에 표시합니다.</p><div class="admin-login"><input id="recovery-code" type="text" placeholder="인증코드" /><button id="verify-recovery-code" class="secondary" type="button">인증 확인</button></div></div><textarea id="bot-question" placeholder="바코드 또는 상품명으로 입고내역, 최근/다음입고, 현재고, 주문사별 인기품목을 물어보세요."></textarea><button id="ask-gemini" class="primary full">질문하기</button><div id="bot-answer" class="bot-answer">할 수 있는 일
+- 바코드 또는 상품명으로 입고내역, 최근입고, 다음입고, 현재고 확인
+- 근거내용 요청 시 업데이트일시, 바코드, 상품명, 입고일정, 현재고, 메모 요약
+- 주문사별 인기품목 분석
+- 상품명으로 바코드 찾기, 바코드로 상품명 찾기</div></aside>
+<div id="low-accuracy-modal" class="modal-overlay" hidden><div class="modal-content"><h3>확인 필요</h3><p style="line-height: 1.6;">전체 <b id="total-parsed-count-low">0</b>건 중 정상 <b id="normal-count-low" style="color:#277d4e;">0</b>건,<br>수정필요한 <b id="low-accuracy-count" style="color:#f47c00;font-size:18px;">0</b>건이 있습니다.</p><div style="display:flex; gap:10px; margin-top:20px;"><button class="secondary full" type="button" onclick="this.closest('.modal-overlay').hidden = true">닫기</button><button class="primary full" id="go-to-review-btn" type="button">수정하러가기</button></div></div></div>
+<div id="mapping-complete-modal" class="modal-overlay" hidden><div class="modal-content"><h3>매핑 검증 완료</h3><p style="line-height: 1.6;">전체 <b id="total-parsed-count-complete" style="color:#277d4e;font-size:18px;">0</b>건의 데이터가 모두 성공적으로 매핑되었습니다.<br>지금 바로 엑셀 파일을 다운로드하시겠습니까?</p><div style="display:flex; gap:10px; margin-top:20px;"><button class="secondary full" id="go-to-history-btn" type="button">작업 이력으로 가기</button><button class="primary full" id="download-excel-now-btn" type="button">엑셀파일 바로 다운받기</button></div></div></div>
+<div id="correction-confirm-modal" class="modal-overlay" hidden><div class="modal-content"><h3>변경 확인</h3><p>이해한 내용이 맞나요?</p><div style="background:#f7f7f6; padding:15px; border-radius:8px; margin-bottom:20px; text-align:left;"><div style="margin-bottom:8px;"><span style="color:#74787c; font-size:12px;">상품명</span><br/><strong id="correction-confirm-product"></strong></div><div><span style="color:#74787c; font-size:12px;">수량</span><br/><strong id="correction-confirm-qty"></strong>개</div></div><div style="display:flex; gap:10px;"><button class="secondary full" type="button" onclick="this.closest('.modal-overlay').hidden = true">취소</button><button class="primary full" id="correction-confirm-btn" type="button">승인하고 학습</button></div></div></div>
+<div id="toast" class="toast" role="status"></div>
+<div class="modal-overlay" id="paste-data-modal" hidden>
+  <div class="modal-content" style="width: 600px; text-align: left;">
+    <h3 style="color: var(--ink); margin-bottom: 8px;">입고 데이터·컨테이너 파일 반영</h3>
+    <p style="font-size: 13px; margin-bottom: 12px; color: var(--muted);">입고예정 데이터를 붙여넣거나 컨테이너 입고 엑셀을 첨부하세요. 제조일자가 있는 파일은 18개월 뒤 유통기한을 자동 계산합니다.</p>
+    <textarea id="paste-data-textarea" rows="10" style="width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 10px; font-size: 12px; font-family: monospace;" placeholder="바코드, 제품명, 입고예정일 머리글을 포함해서 붙여넣어 주세요."></textarea>
+    <label class="dropzone" data-file-dropzone="inbound-update" style="min-height:auto;margin-top:12px;padding:14px;"><input id="inbound-update-file" type="file" accept=".xlsx,.xls,.csv" /><strong>입고·품절·컨테이너 엑셀 파일 첨부</strong><span>클릭하거나 파일을 이 상자에 끌어다 놓으세요</span><span id="inbound-update-file-name">파일을 선택하세요</span></label>
+    <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px;">
+      <button class="secondary" id="close-paste-modal" type="button" style="padding: 8px 16px;">취소</button>
+      <button class="primary" id="apply-paste-data" type="button" style="padding: 8px 16px;">적용하기</button>
+    </div>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="./portfolio-data.js?v=20261105-portfolio-3"></script>
+    <script src="./container-inbound-engine.js?v=20261105-portfolio-3"></script>
+    <script src="./inbound-update-engine.js?v=20261105-portfolio-3"></script>
+    <script src="./mapping-engine.js?v=20261105-portfolio-3"></script>
+    <script src="./inbound-table-engine.js?v=20261105-portfolio-3"></script>
+    <script src="./table-controls.js?v=20261105-portfolio-3"></script>
+    <script src="./inventory-dashboard-engine.js?v=20261105-portfolio-3"></script>
+    <script src="./inventory-dashboard-compat.js?v=20261105-portfolio-3"></script>
+    <script src="./help-bot-search.js?v=20261105-portfolio-3"></script>
+    <script src="./workspace-storage.js?v=20261105-portfolio-3"></script>
+    <script src="./data-basis-engine.js?v=20261105-portfolio-3"></script>
+    <script src="./data-basis-snapshot.js?v=20261105-portfolio-3"></script>
+    <script src="./expiry-lot-engine.js?v=20261105-portfolio-3"></script>
+    <script src="./smartstore-inventory-engine.js?v=20261105-portfolio-3"></script>
+    <script src="./product-detail-engine.js?v=20261105-portfolio-3"></script>
+    <script src="./file-drop-engine.js?v=20261105-portfolio-3"></script>
+    <script src="./stock-row-visibility.js?v=20261105-portfolio-3"></script>
+    <script src="./history-panel-placement.js?v=20261105-portfolio-3"></script>
+    <script src="./inbound-coordination-engine.js?v=20261105-portfolio-3"></script>
+    <script src="./inbound-coordination-ui.js?v=20261105-portfolio-3"></script>
+    <script src="./ops-dashboard-engine.js?v=20261105-portfolio-3"></script>
+    <script src="./ops-dashboard-ui.js?v=20261105-portfolio-3"></script>
+    <script>
+(function(){
+  function initResizableColumns(root){
+    (root||document).querySelectorAll("table.resizable-cols").forEach(function(table){
+      if(table.dataset.resizeBound) return;
+      table.dataset.resizeBound="1";
+      var ths=table.querySelectorAll("thead th");
+      ths.forEach(function(th){
+        if(th.querySelector(".col-resizer")) return;
+        var h=document.createElement("span");
+        h.className="col-resizer";
+        h.title="열 너비 조절";
+        th.appendChild(h);
+        var startX, startW;
+        h.addEventListener("mousedown", function(e){
+          e.preventDefault(); e.stopPropagation();
+          startX=e.pageX; startW=th.offsetWidth;
+          function mv(ev){
+            var w=Math.max(56, startW+(ev.pageX-startX));
+            th.style.width=w+"px";
+            th.style.minWidth=w+"px";
+          }
+          function up(){
+            document.removeEventListener("mousemove", mv);
+            document.removeEventListener("mouseup", up);
+          }
+          document.addEventListener("mousemove", mv);
+          document.addEventListener("mouseup", up);
+        });
+      });
+    });
+  }
+  window.initResizableColumns=initResizableColumns;
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", function(){ initResizableColumns(); });
+  else setTimeout(function(){ initResizableColumns(); }, 0);
+  setInterval(function(){ initResizableColumns(); }, 2000);
+})();
+</script>
+<script src="./app.js?v=20261105-portfolio-3"></script>
+    <script src="./inventory-tools-ui.js?v=20261105-portfolio-3"></script>
+    <script src="./share-link.js?v=20261105-portfolio-3"></script>
+  
+    <div id="ops-product-modal" class="ops-modal" hidden>
+      <div class="ops-modal-backdrop" data-ops-modal-close></div>
+      <div class="ops-modal-card" role="dialog" aria-modal="true" aria-labelledby="ops-modal-title">
+        <button type="button" class="ops-modal-x" data-ops-modal-close aria-label="닫기">×</button>
+        <div class="ops-modal-top">
+          <div class="ops-modal-thumb" id="ops-modal-thumb" aria-hidden="true">📦</div>
+          <div>
+            <h3 id="ops-modal-title">상품명</h3>
+            <p class="ops-modal-meta" id="ops-modal-meta">SKU · 바코드</p>
+          </div>
+        </div>
+        <div class="ops-modal-stats" id="ops-modal-stats"></div>
+        <div class="ops-modal-tabs">
+          <button type="button" class="ops-modal-tab is-active" data-ops-modal-tab="slips">출고대기 내역 (이카운트 + 택배)</button>
+          <button type="button" class="ops-modal-tab" data-ops-modal-tab="stock">재고 상세 정보</button>
+          <button type="button" class="ops-modal-tab" data-ops-modal-tab="inbound">입고예정 내역</button>
+        </div>
+        <div class="ops-modal-panel" data-ops-modal-panel="slips">
+          <div class="inventory-table-wrap h-scroll-wrap">
+            <table>
+              <thead>
+                <tr><th>이카운트 계정명</th><th>판매전표번호</th><th>업체명</th><th>출고량</th></tr>
+              </thead>
+              <tbody id="ops-modal-slips-body"></tbody>
+              <tfoot>
+                <tr><td colspan="3"><strong>출고대기 합계</strong></td><td id="ops-modal-slips-sum"><strong>0</strong></td></tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+        <div class="ops-modal-panel" data-ops-modal-panel="stock" hidden>
+          <div class="inventory-table-wrap h-scroll-wrap">
+            <table>
+              <thead><tr><th>창고존</th><th>재고</th></tr></thead>
+              <tbody id="ops-modal-stock-body"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="ops-modal-panel" data-ops-modal-panel="inbound" hidden>
+          <div class="inventory-table-wrap h-scroll-wrap">
+            <table>
+              <thead><tr><th>입고예정일</th><th>수량</th><th>출처</th><th>비고</th></tr></thead>
+              <tbody id="ops-modal-inbound-body"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="ops-modal-foot">
+          <button type="button" class="secondary dash-btn-center" data-ops-modal-close>닫기</button>
+        </div>
+      </div>
+    </div>
+    <style>
+      .ops-modal { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 24px; }
+      .ops-modal[hidden] { display: none !important; }
+      .ops-modal-backdrop { position: absolute; inset: 0; background: rgba(15,23,42,.45); }
+      .ops-modal-card { position: relative; width: min(720px, 100%); max-height: min(88vh, 900px); overflow: auto; background: #fff; border-radius: 16px; box-shadow: 0 20px 50px rgba(15,23,42,.25); padding: 22px 22px 16px; }
+      .ops-modal-x { position: absolute; top: 12px; right: 14px; border: 0; background: transparent; font-size: 22px; cursor: pointer; color: #64748b; line-height: 1; }
+      .ops-modal-top { display: flex; gap: 14px; align-items: center; margin-bottom: 14px; padding-right: 28px; }
+      .ops-modal-thumb { width: 72px; height: 72px; border-radius: 12px; background: linear-gradient(145deg,#fff7ed,#ffedd5); display:flex; align-items:center; justify-content:center; font-size: 32px; border: 1px solid #fed7aa; }
+      .ops-modal-top h3 { margin: 0 0 4px; font-size: 18px; }
+      .ops-modal-meta { margin: 0; color: #64748b; font-size: 12.5px; }
+      .ops-modal-stats { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 8px; margin-bottom: 14px; }
+      .ops-modal-stat { background: #f8fafc; border: 1px solid #eef2f7; border-radius: 10px; padding: 10px 12px; }
+      .ops-modal-stat span { display:block; font-size: 11px; color: #64748b; font-weight: 600; margin-bottom: 4px; }
+      .ops-modal-stat b { font-size: 18px; color: #0f172a; }
+      .ops-modal-stat.risk { background: #fff1f2; border-color: #fecdd3; }
+      .ops-modal-stat.risk b { color: #c73c35; }
+      .ops-modal-tabs { display: flex; gap: 6px; flex-wrap: wrap; border-bottom: 1px solid #eef2f7; margin-bottom: 12px; padding-bottom: 8px; }
+      .ops-modal-tab { border: 0; background: transparent; padding: 8px 12px; border-radius: 8px; font: inherit; font-size: 12.5px; font-weight: 700; color: #64748b; cursor: pointer; }
+      .ops-modal-tab.is-active { background: #fff7ed; color: #c65b00; }
+      .ops-modal-foot { display: flex; justify-content: flex-end; margin-top: 14px; }
+      .ops-product-link { border: 0; background: none; color: #2563eb; font: inherit; font-weight: 700; cursor: pointer; padding: 0; text-align: left; }
+      .ops-product-link:hover { text-decoration: underline; }
+      @media (max-width: 700px) {
+        .ops-modal-stats { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      }
+    </style>
+
+<style>
+.row-discontinue-btn{display:inline-flex;align-items:center;justify-content:center;padding:6px 10px;border-radius:8px;border:1px solid #fdba74;background:#fff7ed;color:#c2410c;font:inherit;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+.row-discontinue-btn.active{background:#fee2e2;border-color:#fca5a5;color:#b91c1c}
+.soldout-disc-cell{text-align:center}
+</style>
+</body>
+</html>
