@@ -2781,7 +2781,6 @@ function closeInventoryDetail() {
 
 function renderInventoryProductButton(item) {
   const itemKey = getInventoryDetailKey(item);
-  currentInventoryItemsByKey.set(itemKey, item);
   return `<button type="button" class="inventory-product-button" data-inventory-key="${escapeHtml(itemKey)}" aria-expanded="${activeInventoryDetailKey === itemKey}">${escapeHtml(item.productName)}</button><small>${escapeHtml(item.barcode || "바코드 없음")}</small>`;
 }
 
@@ -2930,7 +2929,7 @@ function renderInventoryDashboardRows(group, items) {
     });
     if (group === "arrival") {
       return `<tr>
-        <td>${renderInventoryProductButton({ productName: item.productName, barcode: item.barcode, latestInboundDateLabel: item.confirmedDateLabel })}</td>
+        <td>${renderInventoryProductButton({ productName: item.productName, barcode: item.barcode, latestInboundDateLabel: item.confirmedDateLabel || item.nextInboundDateLabel })}</td>
         <td>${escapeHtml(item.soldOutStatus || "-")}</td>
         <td>${escapeHtml(item.confirmedDateLabel || "미확정")}</td>
         <td>${escapeHtml(item.memo || "-")}</td>
@@ -2938,7 +2937,7 @@ function renderInventoryDashboardRows(group, items) {
       </tr>`;
     }
     return `<tr>
-      <td>${renderInventoryProductButton({ productName: item.productName, barcode: item.barcode, latestInboundDateLabel: item.confirmedDateLabel })}</td>
+      <td>${renderInventoryProductButton({ productName: item.productName, barcode: item.barcode, latestInboundDateLabel: item.confirmedDateLabel || item.nextInboundDateLabel })}</td>
       <td>${escapeHtml(item.currentStockLabel || "-")}</td>
       <td>${escapeHtml(item.seasonLabel || "-")}</td>
       <td>${escapeHtml(item.soldOutStatus || "-")}</td>
@@ -3907,7 +3906,10 @@ document.addEventListener("click", (event) => {
   }
   const coordRow = event.target?.closest?.("tr[data-dash-coord-id]");
   if (coordRow && document.querySelector("#dashboard.page.active")) {
+    const logId = coordRow.dataset.dashCoordId;
+    const log = window.InboundCoordinationEngine?.getAllLogs().find((entry) => entry.id === logId);
     openPage("coordination");
+    if (log) window.InboundCoordinationUI?.openCoordForm(log);
     return;
   }
   const prodBtn = event.target?.closest?.("[data-ops-product]");
