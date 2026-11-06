@@ -73,7 +73,7 @@
     return categories;
   }
 
-  function filterInventoryItems(items, { query = "", category = "전체" } = {}) {
+  function filterInventoryItems(items, { query = "", category = "전체", includeDiscontinued = false } = {}) {
     const needle = normalizeInventoryText(query);
     return (items || []).filter((item) => {
       const row = item?.row || item?.sourceRow || item || {};
@@ -85,7 +85,7 @@
       const matchesQuery = !needle || searchable.includes(needle);
       if (category === "단종") return matchesQuery && isDisc;
       // 전체 및 일반 분류에서는 단종 제외
-      if (isDisc) return false;
+      if (isDisc && !includeDiscontinued) return false;
       const matchesCategory = !category || category === "전체" || cats.includes(category);
       return matchesQuery && matchesCategory;
     });
@@ -95,7 +95,7 @@
     const normalizedQuery = String(query ?? "").trim();
     return {
       query: normalizedQuery,
-      items: normalizedQuery ? filterInventoryItems(items, { query: normalizedQuery }) : [],
+      items: normalizedQuery ? filterInventoryItems(items, { query: normalizedQuery, includeDiscontinued: true }) : [],
       groupStates: Object.fromEntries(
         Object.keys(groupStates || {}).map((group) => [group, { query: "", category: "전체" }]),
       ),

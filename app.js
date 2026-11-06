@@ -3036,20 +3036,18 @@ function setupInventoryDashboardInteractions() {
     if (mainForm) {
       event.preventDefault();
       const engine = window.InventoryDashboardEngine;
+      inventoryMainSearchQuery = mainForm.querySelector("input")?.value.trim() || "";
       if (!engine || !currentInventoryDashboardSummary) return;
       const result = engine.runInventoryMainSearch(
         currentInventoryDashboardSummary.allItems || [],
-        mainForm.querySelector("input")?.value || "",
+        inventoryMainSearchQuery,
         inventoryDashboardStates,
       );
-      resetInventoryDashboardGroupFilters(result.groupStates);
       closeInventoryDetail();
-      currentInventoryItemsByKey = new Map();
-      renderAllInventoryDashboardGroups();
       renderInventoryMainSearchResult(result);
       if (result.query) {
         const panel = document.querySelector("#inventory-main-search-panel");
-        panel?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+        panel?.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
         panel?.focus?.({ preventScroll: true });
       }
       return;
@@ -3150,7 +3148,7 @@ function buildSoldOutInboundDashboardSummary(scheduleRows) {
     const confirmed = getConfirmDateValue(enriched) || String(enriched["비고(확정일)"] || "").match(/(20\d{2}-\d{2}-\d{2})/)?.[0] || "";
     const memo = getConfirmMemoValue(enriched);
     const stock = Number(String(enriched.현재고 ?? "").replace(/,/g, ""));
-    const productName = enriched.상품명 || "-";
+    const productName = enriched.상품명 || enriched.제품명 || "-";
     const isDiscontinued = window.InboundTableEngine?.isDiscontinuedRow?.(enriched)
       || /단종/.test(productName)
       || /단종/.test(String(enriched.대분류 || ""));
@@ -3163,7 +3161,7 @@ function buildSoldOutInboundDashboardSummary(scheduleRows) {
       confirmedDate: confirmed,
       confirmedDateLabel: confirmed || "미정",
       memo: memo || "",
-      nextInboundDateLabel: enriched.다음입고내용 || enriched.입고예정일 || "-",
+      nextInboundDateLabel: enriched.다음입고내용 || window.InboundTableEngine?.resolveInboundSchedule(enriched)?.effectiveDate || enriched.다음입고 || enriched.입고예정일 || "-",
       soldOutStatus: isDiscontinued ? "단종" : (enriched.품절상태표시 || enriched.품절상태 || "-"),
       averageDailyDepletionLabel: enriched.일평균소진량표시 || "-",
       stockoutDateLabel: enriched.품절일 || "-",
@@ -3176,6 +3174,13 @@ function buildSoldOutInboundDashboardSummary(scheduleRows) {
       row: enriched,
     };
   };
+  const searchKey = row => String(row.바코드 || "").replace(/\.0$/, "").trim() || String(row.상품명 || row.제품명 || "").trim();
+  const soldOutByKey = new Map(soldOut.map(row => [searchKey(row), row]));
+  const searchable = new Map();
+  scheduleRows.forEach(row => {
+    const key = searchKey(row);
+    if (key && !searchable.has(key)) searchable.set(key, toDashboardItem(soldOutByKey.get(key) || row));
+  });
   const confirmed = [];
   const unconfirmed = [];
   soldOut.forEach((item) => {
@@ -3225,7 +3230,7 @@ function buildSoldOutInboundDashboardSummary(scheduleRows) {
   };
 
   return {
-    allItems: [...confirmed, ...unconfirmed],
+    allItems: [...searchable.values()],
     soldoutConfirmed: confirmed,
     soldoutUnconfirmed: unconfirmed,
     coordinationOpen,
@@ -3565,8 +3570,6 @@ async function renderInventoryDashboard() {
           inventoryMainSearchQuery,
           inventoryDashboardStates,
         ));
-      } else if (typeof clearInventoryMainSearch === "function") {
-        clearInventoryMainSearch();
       }
     } catch (_) {}
   } catch (error) {

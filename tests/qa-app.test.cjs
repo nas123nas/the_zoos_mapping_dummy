@@ -29,3 +29,15 @@ test('async smartstore form saves and rerenders after browser clears currentTarg
 });
 
 test('invalid master import does not produce an installable empty master', async()=>{const ctx=app();ctx.parseMasterCatalogFromFile=async()=>({productCatalog:[],message:'잘못된 파일'});vm.runInContext(between('  async function fileToStoredMaster(','  async function fileToBase64('),ctx);await assert.rejects(()=>ctx.fileToStoredMaster({name:'bad.csv',arrayBuffer:async()=>new ArrayBuffer(0)}));});
+test('main search includes discontinued items without changing list category rules',()=>{
+ const engine=require('../inventory-dashboard-engine.js');
+ const item={productName:'데모 단종 상품',barcode:'0012345',isDiscontinued:true};
+ assert.equal(engine.runInventoryMainSearch([item],'0012345').items.length,1);
+ assert.equal(engine.filterInventoryItems([item],{query:'0012345'}).length,0);
+});
+test('dashboard search source includes every scheduled item, not just sold-out items',()=>{
+ const ctx=app();ctx.enrichRowWithSeason=row=>row;ctx.getConfirmDateValue=()=>'';ctx.getConfirmMemoValue=()=>'';ctx.getSoldOutItems=rows=>rows.filter(r=>r.현재고===0);
+ vm.runInContext(between('function buildSoldOutInboundDashboardSummary(','function renderDashboardCoordinationList(').split('\nfunction ')[0],ctx);
+ const summary=ctx.buildSoldOutInboundDashboardSummary([{바코드:'01',상품명:'정상 재고',현재고:10},{바코드:'02',상품명:'품절',현재고:0}]);
+ assert.equal(summary.allItems.length,2);assert.equal(summary.soldoutUnconfirmed.length,1);
+});
