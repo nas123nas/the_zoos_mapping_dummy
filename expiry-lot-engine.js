@@ -20,7 +20,8 @@
       return formatDate(value.getUTCFullYear(), value.getUTCMonth() + 1, value.getUTCDate());
     }
     const source = clean(value);
-    const parts = source.match(/(?:^|\D)(20\d{2})[-./]?(\d{2})[-./]?(\d{2})(?:\D|$)/);
+    const parts = source.match(/(?:^|\D)(20\d{2})[-./](\d{1,2})[-./](\d{1,2})(?!\d)/)
+      || source.match(/(?:^|\D)(20\d{2})(\d{2})(\d{2})(?!\d)/);
     if (!parts) return "";
     const year = Number(parts[1]);
     const month = Number(parts[2]);
@@ -88,7 +89,7 @@
     const quantity = parseQuantity(input?.quantity);
     if (!inboundDate) return { ok: false, error: "입고일을 확인해주세요." };
     if (!barcode) return { ok: false, error: "바코드를 입력해주세요." };
-    if (!Number.isInteger(quantity) || quantity <= 0) return { ok: false, error: "입고수량은 1 이상의 정수로 입력해주세요." };
+    if (!Number.isSafeInteger(quantity) || quantity <= 0) return { ok: false, error: "입고수량은 1 이상의 정수로 입력해주세요." };
     const dates = resolveDates(input?.manufacturedDate, input?.expiryDate);
     if (!dates.ok) return dates;
     const sequence = Number.isFinite(options.sequence) ? options.sequence : Date.now();
@@ -160,22 +161,27 @@
     const totalIndex = rows.findIndex((row, index) => index > headerIndex && (row || []).some((value) => clean(value) === "합계"));
     const endIndex = totalIndex >= 0 ? totalIndex : rows.length;
     const expectedTotal = totalIndex >= 0 ? parseQuantity(rows[totalIndex]?.[qtyCol]) : null;
+    const fail = (error, actualTotal = 0) => ({ ok: false, lots: [], expectedTotal, actualTotal, error });
+    if (totalIndex >= 0 && (!Number.isSafeInteger(expectedTotal) || expectedTotal < 0)) return fail("합계행 수량을 확인해주세요.");
     const fileName = clean(options.fileName);
+    if (clean(options.inboundDate) && !parseDate(options.inboundDate)) return fail("입고일을 확인해주세요.");
     const inboundDate = parseDate(options.inboundDate) || inboundDateFromFile(fileName, options.importedAt);
-    const defaultMfg = parseDate(options.defaultManufacturedDate) || "";
-    const defaultExp = parseDate(options.defaultExpiryDate) || "";
+    const defaults = resolveDates(options.defaultManufacturedDate, options.defaultExpiryDate);
+    if (!defaults.ok) return fail(defaults.error);
     const candidates = [];
     let actualTotal = 0;
     for (let index = headerIndex + 1; index < endIndex; index += 1) {
       const row = rows[index] || [];
       const barcode = normalizeBarcode(row[barcodeCol]);
       const quantity = parseQuantity(row[qtyCol]);
-      if (!barcode || barcode === "합계" || !Number.isFinite(quantity) || quantity <= 0) continue;
-      let manufacturedDate = parseDate(row[mfgCol]) || defaultMfg;
-      let expiryDate = parseDate(row[expCol]) || defaultExp;
-      if (manufacturedDate && !expiryDate) expiryDate = expiryFromManufactured(manufacturedDate);
-      if (expiryDate && !manufacturedDate) manufacturedDate = manufacturedFromExpiry(expiryDate);
+      if (!row.some((value) => clean(value))) continue;
+      if (!barcode || !Number.isSafeInteger(quantity) || quantity <= 0) return fail(`${index + 1}행: 바코드와 1 이상의 정수 수량을 확인해주세요.`, actualTotal);
+      const hasRowDates = clean(row[mfgCol]) || clean(row[expCol]);
+      const dates = hasRowDates ? resolveDates(row[mfgCol], row[expCol]) : defaults;
+      if (!dates.ok) return fail(`${index + 1}행: ${dates.error}`, actualTotal);
+      const { manufacturedDate, expiryDate } = dates;
       actualTotal += quantity;
+      if (!Number.isSafeInteger(actualTotal)) return fail("상세 수량 합계가 허용 범위를 초과합니다.");
       candidates.push({
         id: `${fileName}:${index}:${barcode}`,
         sourceType: "file",
@@ -207,28 +213,64 @@
   }
 
   function applyBatchDatesToLots(lots, manufacturedDate, expiryDate) {
-    const mfg = parseDate(manufacturedDate) || "";
-    let exp = parseDate(expiryDate) || "";
-    if (mfg && !exp) exp = expiryFromManufactured(mfg);
-    if (exp && !mfg) {
-      const derivedMfg = manufacturedFromExpiry(exp);
-      return (lots || []).map((lot) => ({
+    const defaults = resolveDates(manufacturedDate, expiryDate);
+    return (lots || []).map((lot) => {
+      const ownMfg = parseDate(lot.manufacturedDate);
+      const ownExp = parseDate(lot.expiryDate);
+      if (ownMfg || ownExp) return {
         ...lot,
-        manufacturedDate: lot.manufacturedDate || derivedMfg,
-        expiryDate: lot.expiryDate || exp,
-      }));
-    }
-    return (lots || []).map((lot) => ({
-      ...lot,
-      manufacturedDate: lot.manufacturedDate || mfg,
-      expiryDate: lot.expiryDate || (lot.manufacturedDate ? expiryFromManufactured(lot.manufacturedDate) : exp),
-    }));
+        manufacturedDate: lot.manufacturedDate || manufacturedFromExpiry(ownExp),
+        expiryDate: lot.expiryDate || expiryFromManufactured(ownMfg),
+      };
+      if (!defaults.ok) return { ...lot };
+      return { ...lot, manufacturedDate: defaults.manufacturedDate, expiryDate: defaults.expiryDate };
+    });
   }
 
 
   function replaceFileLots(existingLots, fileName, incomingLots) {
     const normalized = clean(fileName);
-    return [...(existingLots || []).filter((lot) => !(lot?.sourceType === "file" && clean(lot?.sourceFile) === normalized)), ...(incomingLots || [])];
+    const replaced = new Map();
+    const retained = (existingLots || []).filter((lot) => {
+      if (lot?.sourceType !== "file" || clean(lot?.sourceFile) !== normalized) return true;
+      replaced.set(lot.id, lot);
+      return false;
+    });
+    const next = (incomingLots || []).map((lot) => {
+      const consumedQuantity = lotConsumedQuantity(replaced.get(lot.id));
+      replaced.delete(lot.id);
+      return consumedQuantity ? { ...lot, quantity: Math.max(lot.quantity, consumedQuantity), consumedQuantity } : lot;
+    });
+    for (const lot of replaced.values()) {
+      const consumedQuantity = lotConsumedQuantity(lot);
+      if (consumedQuantity) retained.push({ ...lot, quantity: consumedQuantity });
+    }
+    return [...retained, ...next];
+  }
+
+  function lotConsumedQuantity(lot) {
+    const quantity = parseQuantity(lot?.quantity);
+    const consumed = parseQuantity(lot?.consumedQuantity);
+    if (!Number.isSafeInteger(quantity) || quantity <= 0 || !Number.isSafeInteger(consumed) || consumed <= 0) return 0;
+    return Math.min(quantity, consumed);
+  }
+
+  function consumedStockByBarcode(lots) {
+    const consumed = Object.create(null);
+    for (const lot of lots || []) {
+      const barcode = normalizeBarcode(lot?.barcode);
+      const quantity = lotConsumedQuantity(lot);
+      if (barcode && quantity) consumed[barcode] = (consumed[barcode] || 0) + quantity;
+    }
+    return consumed;
+  }
+
+  function expiryStatus(value, today, days = 30) {
+    const expiry = parseDate(value);
+    const start = parseDate(today);
+    if (!expiry || !start) return "unknown";
+    if (expiry < start) return "expired";
+    return expiry <= addDays(start, days) ? "near" : "normal";
   }
 
   function consumptionOrder(left, right) {
@@ -241,18 +283,26 @@
   }
 
   function allocateRemainingLots(lots, stockByBarcode = {}) {
+    const stocks = normalizeStocks(stockByBarcode);
+    return allocateWithStocks(lots, stocks, consumedStockByBarcode(lots));
+  }
+
+  function allocateWithStocks(lots, stocks, consumedByBarcode) {
     const groups = new Map();
     (lots || []).forEach((lot) => {
       const barcode = normalizeBarcode(lot?.barcode);
+      const quantity = parseQuantity(lot?.quantity);
+      if (!barcode || !Number.isSafeInteger(quantity) || quantity <= 0) return;
       if (!groups.has(barcode)) groups.set(barcode, []);
-      groups.get(barcode).push({ ...lot, barcode });
+      groups.get(barcode).push({ ...lot, barcode, consumedQuantity: lotConsumedQuantity(lot) });
     });
     const remaining = [];
     groups.forEach((items, barcode) => {
-      const total = items.reduce((sum, item) => sum + Math.max(0, Number(item.quantity) || 0), 0);
-      let consumed = Math.max(0, total - Math.max(0, Number(stockByBarcode[barcode]) || 0));
+      const total = items.reduce((sum, item) => sum + parseQuantity(item.quantity) - item.consumedQuantity, 0);
+      const stock = Math.max(0, (stocks[barcode] || 0) - (consumedByBarcode[barcode] || 0));
+      let consumed = Math.max(0, total - stock);
       items.sort(consumptionOrder).forEach((item) => {
-        const quantity = Math.max(0, Number(item.quantity) || 0);
+        const quantity = parseQuantity(item.quantity) - item.consumedQuantity;
         const used = Math.min(consumed, quantity);
         consumed -= used;
         if (quantity > used) remaining.push({ ...item, remainingQuantity: quantity - used });
@@ -261,9 +311,21 @@
     return remaining.sort(consumptionOrder);
   }
 
+  function normalizeStocks(stockByBarcode) {
+    const stocks = Object.create(null);
+    Object.entries(stockByBarcode || {}).forEach(([key, value]) => {
+      const barcode = normalizeBarcode(key);
+      const quantity = parseQuantity(value);
+      if (barcode) stocks[barcode] = Number.isSafeInteger(quantity) && quantity >= 0 ? quantity : 0;
+    });
+    return stocks;
+  }
+
   function summarizeStockAllocation(lots, stockByBarcode = {}) {
-    const remainingLots = allocateRemainingLots(lots, stockByBarcode);
-    const assignedByBarcode = {};
+    const stocks = normalizeStocks(stockByBarcode);
+    const consumedByBarcode = consumedStockByBarcode(lots);
+    const remainingLots = allocateWithStocks(lots, stocks, consumedByBarcode);
+    const assignedByBarcode = Object.create(null);
     remainingLots.forEach((lot) => {
       const barcode = normalizeBarcode(lot?.barcode);
       assignedByBarcode[barcode] = (assignedByBarcode[barcode] || 0) + Math.max(0, Number(lot?.remainingQuantity) || 0);
@@ -275,7 +337,7 @@
     const byBarcode = {};
     barcodes.forEach((barcode) => {
       if (!barcode) return;
-      const currentStock = Math.max(0, Number(stockByBarcode?.[barcode]) || 0);
+      const currentStock = Math.max(0, (stocks[barcode] || 0) - (consumedByBarcode[barcode] || 0));
       const expiryAssigned = Math.min(currentStock, assignedByBarcode[barcode] || 0);
       byBarcode[barcode] = {
         currentStock,
@@ -284,6 +346,17 @@
       };
     });
     return { remainingLots, byBarcode };
+  }
+
+  function consumeLot(lots, stockByBarcode, id, value) {
+    const quantity = parseQuantity(value);
+    const target = (lots || []).find((lot) => String(lot?.id) === String(id));
+    const remaining = target && allocateRemainingLots(lots, stockByBarcode).find((lot) => String(lot.id) === String(id));
+    if (!Number.isSafeInteger(quantity) || quantity <= 0 || !remaining || quantity > remaining.remainingQuantity) {
+      return { ok: false, error: "차감수량은 1 이상이고 로트 잔량 이하여야 합니다." };
+    }
+    const consumedQuantity = lotConsumedQuantity(target) + quantity;
+    return { ok: true, lots: lots.map((lot) => lot === target ? { ...lot, consumedQuantity } : lot) };
   }
 
   return {
@@ -296,6 +369,10 @@
     parseContainerLots,
     applyBatchDatesToLots,
     replaceFileLots,
+    lotConsumedQuantity,
+    consumedStockByBarcode,
+    expiryStatus,
+    consumeLot,
     allocateRemainingLots,
     summarizeStockAllocation,
   };

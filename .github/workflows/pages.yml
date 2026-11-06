@@ -25,8 +25,8 @@ jobs:
         uses: actions/checkout@v4
       - name: Verify demo data and categories
         run: |
-          node tests/portfolio-data.test.cjs
-          node tests/soldout-categories.test.cjs
+          node --test tests/*.test.cjs
+          for file in *.js; do node --check "$file"; done
       - name: Prepare static site
         run: |
           mkdir _site

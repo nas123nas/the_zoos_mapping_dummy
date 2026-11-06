@@ -9,38 +9,23 @@ const DEFAULT_ADMIN_PASSWORD = "PortfolioDemo!2026";
 const ADMIN_RECOVERY_EMAIL = "portfolio@example.invalid";
 const STOCK_SCHEDULE_CSV_URL = "";
 const STOCK_SCHEDULE_VIEW_URL = "#inbound";
-const defaultProductCatalog = window.PortfolioData.workspace().productCatalog;
-const defaultMappingPreviewRows = window.PortfolioData.workspace().mappingPreviewRows;
-const defaultOrderAnalysisRows = window.PortfolioData.workspace().orderAnalysisRows;
-const defaultReviewItems = window.PortfolioData.workspace().reviewItems;
-const defaultLearningHistory = window.PortfolioData.workspace().learningHistory;
-const defaultJobs = window.PortfolioData.workspace().jobs;
-const initialMaster = window.PortfolioData.workspace().fixedMaster;
+const demoDefaults = window.PortfolioData.workspace();
+const defaultProductCatalog = demoDefaults.productCatalog;
+const defaultMappingPreviewRows = demoDefaults.mappingPreviewRows;
+const defaultOrderAnalysisRows = demoDefaults.orderAnalysisRows;
+const defaultReviewItems = demoDefaults.reviewItems;
+const defaultLearningHistory = demoDefaults.learningHistory;
+const defaultJobs = demoDefaults.jobs;
+const initialMaster = demoDefaults.fixedMaster;
 let workspace = loadWorkspace();
 
 function ensureWorkspaceDemoData() {
-  try {
-    if (!workspace.productCatalog?.length) workspace.productCatalog = defaultProductCatalog.slice();
-    if (!workspace.mappingPreviewRows?.length) workspace.mappingPreviewRows = defaultMappingPreviewRows.slice();
-    if (!workspace.orderAnalysisRows?.length) workspace.orderAnalysisRows = defaultOrderAnalysisRows.slice();
-    if (!workspace.reviewItems?.length) workspace.reviewItems = defaultReviewItems.slice();
-    if (!workspace.learningHistory?.length) workspace.learningHistory = defaultLearningHistory.slice();
-    if (!workspace.jobs?.length) workspace.jobs = defaultJobs.slice();
-    if (!workspace.fixedMaster) {
-      workspace.fixedMaster = normalizeMaster(initialMaster, 1);
-      workspace.masterHistory = [workspace.fixedMaster];
-    }
-  } catch (e) {
-    console.warn("[demo] workspace", e);
-  }
+  Object.entries(demoDefaults).forEach(([key, value]) => {
+    if (Array.isArray(value) && !Array.isArray(workspace[key])) workspace[key] = value;
+  });
+  if (!Array.isArray(workspace.containerInboundRecords)) workspace.containerInboundRecords = [];
 }
 ensureWorkspaceDemoData();
-if (!Array.isArray(workspace.smartstoreReservations) || !workspace.smartstoreReservations.length) {
-  workspace.smartstoreReservations = window.PortfolioData.workspace().smartstoreReservations;
-}
-if (!Array.isArray(workspace.containerInboundRecords) || !workspace.containerInboundRecords.length) {
-  workspace.containerInboundRecords = [];
-}
 
 
 let adminVerification = null;
@@ -149,9 +134,15 @@ function getReviewSummary(reviewItems, learningHistory = []) {
       if (Number(normalized.accuracy) < Number(normalized.threshold ?? 95)) mismatches.push(`정확도 기준 ${normalized.threshold ?? 95}% 미달`);
       return { ...normalized, mismatches };
     })
-    .filter((item) => window.MappingEngine?.needsQuantityCorrection(item)
-      ?? Number(item.expectedQuantity ?? item.orderQuantity ?? 0) !== Number(item.mappedQuantity ?? 0));
+    .filter(needsMappingReview);
   return { items, reviewRequiredCount: items.length };
+}
+
+function needsMappingReview(item) {
+  return Boolean(window.MappingEngine?.needsQuantityCorrection(item))
+    || Boolean(item.mismatches?.length)
+    || Boolean(item.finalStatus && item.finalStatus !== "정상")
+    || Number(item.accuracy ?? 100) < Number(item.threshold ?? 95);
 }
 
 function normalizeReviewItem(item) {
@@ -1359,7 +1350,7 @@ function upsertRowOverride(key, patch) {
   saveWorkspace();
 }
 
-function getWeeklyInboundItems(scheduleRows, targetStart, targetEnd, ignoreDateRange = false) {
+function getWeeklyInboundItems(scheduleRows, targetStart, targetEnd) {
   let start, end;
   if (targetStart && targetEnd && targetStart instanceof Date && targetEnd instanceof Date) {
     start = targetStart;
@@ -1391,16 +1382,23 @@ function getWeeklyInboundItems(scheduleRows, targetStart, targetEnd, ignoreDateR
     .filter(Boolean)
     .map(applyRowOverride);
   const filteredRows = window.InboundTableEngine?.filterRowsByDateRange
-    ? window.InboundTableEngine.filterRowsByDateRange(normalizedRows, start, end, { ignoreRange: ignoreDateRange })
-    : normalizedRows.filter((row) => ignoreDateRange || (parseInboundDate(row.입고예정정렬일) >= start && parseInboundDate(row.입고예정정렬일) <= end));
+    ? window.InboundTableEngine.filterRowsByDateRange(normalizedRows, start, end)
+    : normalizedRows.filter((row) => parseInboundDate(row.입고예정정렬일) >= start && parseInboundDate(row.입고예정정렬일) <= end);
   return filteredRows
     .sort((left, right) => parseInboundDate(left.입고예정정렬일) - parseInboundDate(right.입고예정정렬일) || String(left.상품명 || "").localeCompare(String(right.상품명 || "")));
 }
 
 function getSoldOutItems(scheduleRows, stockThreshold = soldOutStockThreshold) {
+  const expiryConsumed = window.ExpiryLotEngine?.consumedStockByBarcode?.(workspace.expiryLots || []) || {};
   return scheduleRows
     .map((row) => {
-      const availability = window.SmartstoreInventoryEngine?.summarizeAvailability(row, workspace.smartstoreReservations || []);
+      const rawStock = String(row.현재고 ?? "").trim().replace(/,/g, "");
+      const stock = rawStock ? Number(rawStock) : NaN;
+      const barcode = String(row.바코드 || row.상품코드 || "").replace(/\.0$/, "").replace(/\s+/g, "");
+      const stockAfterExpiry = stock < 0 ? stock : Math.max(0, stock - (expiryConsumed[barcode] || 0));
+      const availability = Number.isFinite(stock) && stock >= 0
+        ? window.SmartstoreInventoryEngine?.summarizeAvailability({ ...row, 현재고: stockAfterExpiry }, workspace.smartstoreReservations || [])
+        : null;
       const statusRow = availability ? { ...row, 현재고: availability.regularAvailable } : row;
       let status = window.InboundTableEngine?.getSoldOutStatus(statusRow, stockThreshold)
         || (String(row.품절일자 || "").trim() ? "soldout" : "");
@@ -1412,10 +1410,11 @@ function getSoldOutItems(scheduleRows, stockThreshold = soldOutStockThreshold) {
       ) || {};
       return {
         ...row,
+        현재고: availability?.totalStock ?? row.현재고,
         스마트스토어전용수량: availability?.smartstoreReserved || 0,
         일반판매가능수량: availability?.regularAvailable ?? row.현재고,
         품절상태: status,
-        품절상태표시: status === "smartstore" ? "스마트스토어 출고가능" : (status === "near" ? "⚠ 품절임박" : "품절"),
+        품절상태표시: status === "smartstore" ? "전용 업체 출고가능" : (status === "near" ? "⚠ 품절임박" : "품절"),
         품절일: row.품절일자 || (status === "near"
           ? `현재고 1~${stockThreshold.toLocaleString("ko-KR")}개`
           : (status === "smartstore" ? `전용 ${availability.smartstoreReserved.toLocaleString("ko-KR")}개` : "현재고 0 이하")),
@@ -1591,8 +1590,9 @@ function loadWorkspace() {
   // 낡은 테스트 데이터 필터링
   reviewItems = reviewItems.filter(item => item.id !== 'review-1' && item.id !== 'review-2');
   
-  const masterHistory = (parsed.masterHistory?.length ? parsed.masterHistory : base.masterHistory).map((master, index) => normalizeMaster(master, index + 1));
-  const fixedMaster = normalizeMaster(parsed.fixedMaster || base.fixedMaster, 1);
+  const masterHistory = (Array.isArray(parsed.masterHistory) ? parsed.masterHistory : base.masterHistory).map((master, index) => normalizeMaster(master, index + 1));
+  const savedMaster = Object.prototype.hasOwnProperty.call(parsed, "fixedMaster") ? parsed.fixedMaster : base.fixedMaster;
+  const fixedMaster = savedMaster ? normalizeMaster(savedMaster, 1) : null;
   return {
     ...base,
     ...parsed,
@@ -2089,7 +2089,6 @@ document.addEventListener("click", (event) => {
 function addFileModeControls() {
   [
     { inputId: "master-file", key: "master" },
-    { inputId: "order-file", key: "orders" },
     { inputId: "manual-file", key: "manual" },
   ].forEach(({ inputId, key }) => {
     const input = document.querySelector(`#${inputId}`);
@@ -2279,14 +2278,12 @@ function buildProcessedExport(target, reviewItemId) {
 }
 
 function getMappingPreviewRows() {
-  if (window.customMappingPreviewRows && window.customMappingPreviewRows.length > 0) {
-    return window.customMappingPreviewRows;
-  }
-  return workspace.mappingPreviewRows?.length ? workspace.mappingPreviewRows : defaultMappingPreviewRows;
+  return Array.isArray(workspace.mappingPreviewRows) ? workspace.mappingPreviewRows : defaultMappingPreviewRows;
 }
 
 function buildJobHistoryExport(target, selectedJobIds = []) {
   const rows = getJobResultRows(selectedJobIds);
+  if (!rows.length) return null;
   const content = target === "excel" ? toExcelHtml(rows) : toCsv(rows);
   return {
     fileName: target === "excel" ? "매핑검토내용.xls" : "매핑검토내용_구글시트추가용.csv",
@@ -2299,7 +2296,8 @@ function buildMasterExports(selectedMasterIds = []) {
   const masterIdSet = new Set(selectedMasterIds);
   return (workspace.masterHistory || [])
     .filter((master) => !masterIdSet.size || masterIdSet.has(master.id))
-    .map((master) => buildMasterExportFile(master));
+    .map((master) => buildMasterExportFile(master))
+    .filter(Boolean);
 }
 
 function buildMasterExportFile(master) {
@@ -2311,16 +2309,20 @@ function buildMasterExportFile(master) {
       encoding: master.encoding || "base64",
     };
   }
+  const catalog = master.productCatalog
+    || (master.id === workspace.fixedMaster?.id ? workspace.productCatalog : null)
+    || demoDefaults.masterHistory.find(version => version.id === master.id)?.productCatalog;
+  if (!catalog?.length) return null;
   return {
-    fileName: `${String(master.name || "자사상품_마스터").replace(/\.(xlsx|xls|csv)$/i, "")}_예시.xls`,
+    fileName: `${String(master.name || "자사상품_마스터").replace(/\.(xlsx|xls|csv)$/i, "")}_상품목록.xls`,
     mimeType: "application/vnd.ms-excel;charset=utf-8",
-    content: toExcelHtml(getFallbackMasterRows()),
+    content: toExcelHtml(getFallbackMasterRows(catalog)),
     encoding: "text",
   };
 }
 
-function getFallbackMasterRows() {
-  return defaultProductCatalog.map((product) => ({
+function getFallbackMasterRows(catalog = defaultProductCatalog) {
+  return catalog.map((product) => ({
     자사상품코드: product.productCode,
     바코드: product.barcode,
     자사상품명: product.productName,
@@ -2331,12 +2333,7 @@ function getFallbackMasterRows() {
 
 function getJobHistoryRows(selectedJobIds = []) {
   const selectedJobIdSet = new Set(selectedJobIds);
-  const jobs = workspace.jobs.length
-    ? workspace.jobs
-    : [
-        { id: "sample-job-1", orderName: "주문정보_7월3주.xlsx", masterName: workspace.fixedMaster?.name || "고정 마스터 없음", status: "완료", createdAt: "오늘 10:24" },
-        { id: "sample-job-2", orderName: "도매주문_7월3주.xlsx", masterName: workspace.fixedMaster?.name || "고정 마스터 없음", status: "검토 필요", createdAt: "오늘 09:58" },
-      ];
+  const jobs = workspace.jobs;
   const hasReviewedRecords = Boolean((workspace.learningHistory || []).length);
   return jobs.filter((job) => !selectedJobIdSet.size || selectedJobIdSet.has(job.id)).map((job) => ({
     id: job.id,
@@ -2349,12 +2346,10 @@ function getJobHistoryRows(selectedJobIds = []) {
 
 function getJobResultRows(selectedJobIds = []) {
   const selectedJobIdSet = new Set(selectedJobIds);
-  const jobs = workspace.jobs.length
-    ? workspace.jobs
-    : [{ id: "sample-job-1", orderName: "예시 작업", masterName: workspace.fixedMaster?.name || "고정 마스터 없음", status: "완료", createdAt: "오늘 10:24" }];
+  const jobs = workspace.jobs;
   const targetJobs = jobs.filter((job) => !selectedJobIdSet.size || selectedJobIdSet.has(job.id));
   return targetJobs.flatMap((job) => {
-    const decisions = job.resultRows?.length ? job.resultRows : (workspace.mappingDecisions || []);
+    const decisions = Array.isArray(job.resultRows) ? job.resultRows : window.PortfolioData.demoJobResultRows(job.id);
     return decisions.map((decision) => ({
       작업ID: job.id,
       작업파일: job.orderName,
@@ -2376,16 +2371,11 @@ function downloadProcessedResult(target, reviewItemId) {
   showToast(target === "excel" ? "엑셀 파일을 다운로드했습니다." : "구글시트 추가용 CSV를 다운로드했습니다.");
 }
 
-function downloadJobHistory(target) {
-  const selectedJobIds = getCheckedValues("[data-job-check]:checked");
+function downloadJobHistory(target, selectedJobIds = getCheckedValues("[data-job-check]:checked")) {
   if (!selectedJobIds.length) return showToast("다운로드할 작업 이력을 체크하세요.");
   const output = buildJobHistoryExport(target, selectedJobIds);
-  const blob = new Blob([output.content], { type: output.mimeType });
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = output.fileName;
-  link.click();
-  URL.revokeObjectURL(link.href);
+  if (!output) return showToast("선택한 작업에 저장된 매핑 결과가 없습니다.");
+  downloadStoredFile(output);
   showToast(target === "excel" ? "선택한 작업 이력 엑셀 파일을 다운로드했습니다." : "선택한 작업 이력 CSV를 다운로드했습니다.");
 }
 
@@ -2393,8 +2383,9 @@ function downloadMaster(target) {
   const selectedMasterIds = getCheckedValues("[data-master-check]:checked");
   if (!selectedMasterIds.length) return showToast("다운로드할 마스터 파일을 체크하세요.");
   const outputs = buildMasterExports(selectedMasterIds);
+  if (!outputs.length) return showToast("선택한 이력에 저장된 상품목록이 없습니다.");
   outputs.forEach((output) => downloadStoredFile(output));
-  showToast("선택한 자사상품 마스터 원본 파일을 다운로드했습니다.");
+  showToast("선택한 마스터의 상품목록을 다운로드했습니다.");
 }
 
 function downloadStoredFile(output) {
@@ -2416,6 +2407,7 @@ function base64ToBlob(base64, mimeType) {
   async function fileToStoredMaster(file) {
     const buffer = await file.arrayBuffer();
     const parseResult = await parseMasterCatalogFromFile(file, buffer);
+    if (!parseResult.productCatalog?.length) throw new Error(parseResult.message || "유효한 상품이 없는 마스터는 등록할 수 없습니다.");
     return {
       name: file.name,
       originalName: file.name,
@@ -2444,7 +2436,7 @@ function base64ToBlob(base64, mimeType) {
   async function parseMasterCatalogFromFile(file, buffer) {
     try {
       const lowerName = String(file.name || "").toLowerCase();
-      if (lowerName.endsWith(".xlsx") || lowerName.endsWith(".xlsm") || lowerName.endsWith(".xlsb")) {
+      if (/\.xls[xmb]?$/i.test(lowerName)) {
         const workbook = await readWorkbook(buffer);
         const rows = workbook.SheetNames.flatMap((sheetName) => XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, raw: false, defval: "" }));
         const productCatalog = parseMasterCatalogRows(rows);
@@ -2465,23 +2457,25 @@ function base64ToBlob(base64, mimeType) {
     return window.XLSX.read(buffer, { type: "array" });
   }
   
+  const pendingScripts = new Map();
   function loadScript(src) {
-    return new Promise((resolve, reject) => {
-      const existing = document.querySelector(`script[src="${src}"]`);
-      if (existing) {
-        existing.addEventListener("load", resolve, { once: true });
-        existing.addEventListener("error", reject, { once: true });
-        if (window.XLSX) resolve();
-        return;
-      }
+    if (window.XLSX) return Promise.resolve();
+    if (pendingScripts.has(src)) return pendingScripts.get(src);
+    const loading = new Promise((resolve, reject) => {
+      document.querySelector(`script[src="${src}"]`)?.remove();
       const script = document.createElement("script");
       script.src = src;
       script.onload = resolve;
-      script.onerror = () => reject(new Error("외부 스크립트 로드 실패"));
+      script.onerror = () => {
+        script.remove();
+        reject(new Error("엑셀 처리 기능을 불러오지 못했습니다."));
+      };
       document.head.appendChild(script);
-    });
+    }).finally(() => pendingScripts.delete(src));
+    pendingScripts.set(src, loading);
+    return loading;
   }
-  
+
   function parseMasterCatalogFromText(text, delimiter) {
     const rawText = String(text || "");
     const rows = rawText.trimStart().startsWith("<")
@@ -2597,26 +2591,29 @@ function renderReviewItems() {
     ? summary.items
     .map(
       (item) =>
-        `<tr class="${workspace.selectedReviewItem?.id === item.id ? "selected-row" : ""}" data-review-id="${item.id}">
-          <td>${item.orderNo}</td>
-          <td><strong>${item.orderProduct}</strong><small>${item.orderQuantity}개</small></td>
-          <td><strong>${item.mappedProduct}</strong><small>${item.productCode || ""} · ${item.mappedQuantity}개</small></td>
+        `<tr class="${workspace.selectedReviewItem?.id === item.id ? "selected-row" : ""}" data-review-id="${escapeHtml(item.id)}">
+          <td>${escapeHtml(item.orderNo)}</td>
+          <td><strong>${escapeHtml(item.orderProduct)}</strong><small>${escapeHtml(item.orderQuantity)}개</small></td>
+          <td><strong>${escapeHtml(item.mappedProduct)}</strong><small>${escapeHtml(item.productCode || "")} · ${escapeHtml(item.mappedQuantity)}개</small></td>
           <td>
-            <span class="${item.accuracy < item.threshold ? "accuracy-bad" : "accuracy-good"}">${item.accuracy}%</span>
-            <small>기준 ${item.threshold}%</small><br/>
-            <small style="color:#c73c35; font-weight:bold; margin-top:4px;">${item.mismatches.join("<br />")}</small>
+            <span class="${item.accuracy < item.threshold ? "accuracy-bad" : "accuracy-good"}">${escapeHtml(item.accuracy)}%</span>
+            <small>기준 ${escapeHtml(item.threshold)}%</small><br/>
+            <small style="color:#c73c35; font-weight:bold; margin-top:4px;">${item.mismatches.map(escapeHtml).join("<br />")}</small>
           </td>
           <td class="correction-inputs" style="vertical-align: middle;">
             <input type="text" class="correction-product" value="${item.mappedProduct === '매핑 필요' ? '' : item.mappedProduct}" placeholder="정확한 상품명" style="width:100%; border:1px solid #dedfe1; border-radius:4px; padding:6px; font-size:12px; margin-bottom:4px;" />
             <input type="number" class="correction-qty" value="${item.mappedQuantity || item.orderQuantity}" style="width:60px; border:1px solid #dedfe1; border-radius:4px; padding:6px; font-size:12px;" />
           </td>
           <td style="vertical-align: middle;">
-            <button type="button" style="border:1px solid #f47c00;background:#fff;color:#c65b00;border-radius:6px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;width:100%;" onclick="applyRowCorrection('${item.id}', this)">수정 반영</button>
+            <button type="button" style="border:1px solid #f47c00;background:#fff;color:#c65b00;border-radius:6px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;width:100%;" data-apply-review="${escapeHtml(item.id)}">수정 반영</button>
           </td>
         </tr>`,
     )
     .join("")
     : `<tr><td colspan="6" style="text-align:center; padding:20px;">정확도 기준 미달이나 상품·수량 차이가 있는 검토 필요 항목이 없습니다.</td></tr>`;
+  body.querySelectorAll("[data-apply-review]").forEach(button => {
+    button.addEventListener("click", () => window.applyRowCorrection(button.dataset.applyReview, button));
+  });
   body.querySelectorAll("tr").forEach((row) => row.addEventListener("click", (event) => {
     if (window.TableControls?.isInteractiveTableTarget(event.target)) return;
     selectReviewItem(row.dataset.reviewId);
@@ -2632,6 +2629,10 @@ window.applyRowCorrection = function(reviewId, btn) {
   const quantity = Number(qtyInput.value);
   if (!mappedProduct) {
     alert("정확한 상품명을 입력해주세요.");
+    return;
+  }
+  if (!qtyInput.value.trim() || !Number.isSafeInteger(quantity) || quantity <= 0) {
+    alert("수량은 1 이상의 정수로 입력해주세요.");
     return;
   }
   const reviewItem = workspace.reviewItems.find(i => i.id === reviewId);
@@ -2652,33 +2653,33 @@ window.applyRowCorrection = function(reviewId, btn) {
     savedAt: new Date().toISOString(),
   });
   
+  const correction = {
+    mappedProduct, mappedQuantity: quantity, expectedQuantity: quantity,
+    accuracy: 100, finalStatus: "정상", mismatches: [],
+    minimumDecision: "수동 검토 완료", productDecision: "수동 검토 완료",
+    quantityDecision: "수동 검토 완료", componentDecision: "수동 검토 완료",
+    correctionAnswer: `${mappedProduct} / ${quantity}개`, decisionText: "수동 검토 완료",
+  };
   if (workspace.mappingPreviewRows) {
-    const previewRow = workspace.mappingPreviewRows.find(r => r.주문번호 === reviewItem.orderNo && r.주문내용 === reviewItem.orderProduct);
-    if (previewRow) {
-      previewRow.자사상품명 = mappedProduct;
-      previewRow.수량 = quantity;
-      previewRow.비고 = "수동 검토 완료";
-      previewRow.작업상태 = "완료";
-    }
+    const sameOrder = workspace.mappingPreviewRows.filter(row => row.주문번호 === reviewItem.orderNo);
+    const previewRow = sameOrder.find(row => row.reviewId === reviewId)
+      || (sameOrder.length === 1 && !sameOrder[0].reviewId ? sameOrder[0] : null)
+      || sameOrder.find(row => !row.reviewId && row.주문내용 === reviewItem.orderProduct);
+    if (previewRow) Object.assign(previewRow, {
+      자사상품명: mappedProduct, 수량: quantity, 매핑수량: quantity,
+      비고: "수동 검토 완료", 판정내용: "수동 검토 완료", 최종판정: "정상", 작업상태: "완료",
+    });
   }
-  workspace.mappingDecisions = (workspace.mappingDecisions || []).map((decision) => {
-    if (decision.reviewId !== reviewId) return decision;
-    return {
-      ...decision,
-      mappedProduct,
-      mappedQuantity: quantity,
-      correctionAnswer: `${mappedProduct} / ${quantity}개`,
-    };
+  workspace.mappingDecisions = (workspace.mappingDecisions || []).map(decision =>
+    decision.reviewId === reviewId ? { ...decision, ...correction } : decision);
+  workspace.jobs = (workspace.jobs || []).map(job => {
+    if (!(job.resultRows || []).some(decision => decision.reviewId === reviewId)) return job;
+    const resultRows = job.resultRows.map(decision => decision.reviewId === reviewId ? { ...decision, ...correction } : decision);
+    return { ...job, resultRows, status: resultRows.some(needsMappingReview) ? "검토 필요" : "완료" };
   });
-  workspace.jobs = (workspace.jobs || []).map((job) => ({
-    ...job,
-    resultRows: (job.resultRows || []).map((decision) => decision.reviewId === reviewId
-      ? { ...decision, mappedProduct, mappedQuantity: quantity, correctionAnswer: `${mappedProduct} / ${quantity}개` }
-      : decision),
-  }));
-  
+
   saveWorkspace();
-  renderReviewItems();
+  render();
 };
 
 function renderDrafts() {
@@ -2698,7 +2699,7 @@ function renderProcessedResults() {
     ? records
         .map(
           (record) =>
-            `<div class="processed-item"><div><b>${record.orderNo}</b><span>${record.sourceText} → ${record.productCode} · ${record.quantity}개</span></div><div class="processed-actions"><button type="button" data-export="googleSheets" data-review-id="${record.reviewItemId}">구글시트 추가용</button><button type="button" data-export="excel" data-review-id="${record.reviewItemId}">엑셀 다운로드</button></div></div>`,
+            `<div class="processed-item"><div><b>${escapeHtml(record.orderNo || record.reviewItemId || "학습기록")}</b><span>${escapeHtml(record.sourceText || record.orderProduct)} → ${escapeHtml(record.mappedProduct || record.productCode)} · ${escapeHtml(record.quantity ?? record.mappedQuantity ?? "-")}개</span></div><div class="processed-actions"><button type="button" data-export="googleSheets" data-review-id="${escapeHtml(record.reviewItemId)}">구글시트 추가용</button><button type="button" data-export="excel" data-review-id="${escapeHtml(record.reviewItemId)}">엑셀 다운로드</button></div></div>`,
         )
         .join("")
     : "<span>승인 후 반영된 처리 결과가 없습니다.</span>";
@@ -2713,9 +2714,9 @@ function renderMappingPreviewRows() {
   body.innerHTML = getMappingPreviewRows()
     .map(
       (row) => {
-        const failed = row.최종판정 === "확인 필요";
+        const failed = /확인\s*필요|불일치|오류/.test(row.최종판정);
         const rowStyle = failed ? 'style="color:#c73c35; font-weight:700;"' : "";
-        return `<tr ${rowStyle}><td>${escapeHtml(row.주문번호)}</td><td><strong>${escapeHtml(row.주문내용)}</strong><small>${escapeHtml(row.옵션1 || "옵션 없음")}</small></td><td>${escapeHtml(row.자사상품명)}</td><td>${row.주문수량}</td><td>${row.매핑수량}</td><td><span class="tag ${failed ? "red" : "green"}">${row.최종판정}</span></td><td style="white-space:pre-line;line-height:1.55">${escapeHtml(row.판정내용)}</td></tr>`;
+        return `<tr ${rowStyle}><td>${escapeHtml(row.주문번호)}</td><td><strong>${escapeHtml(row.주문내용)}</strong><small>${escapeHtml(row.옵션1 || "옵션 없음")}</small></td><td>${escapeHtml(row.자사상품명)}</td><td>${escapeHtml(row.주문수량 ?? row.수량 ?? "-")}</td><td>${escapeHtml(row.매핑수량 ?? row.수량 ?? "-")}</td><td><span class="tag ${failed ? "red" : "green"}">${escapeHtml(row.최종판정)}</span></td><td style="white-space:pre-line;line-height:1.55">${escapeHtml(row.판정내용)}</td></tr>`;
       }
     )
     .join("");
@@ -2729,7 +2730,7 @@ function renderMasterFiles() {
     ? masters
         .map(
           (master) =>
-            `<tr><td><input type="checkbox" data-master-check value="${master.id}" /></td><td><strong>${master.name}</strong><small>${master.id}</small></td><td>${master.fixedAt || "-"}</td><td><span class="tag ${master.fixed === false ? "orange" : "green"}">${master.fixed === false ? "고정 해제" : "고정"}</span></td><td>${workspace.fixedMaster?.id === master.id ? "현재 기준" : "이력"}</td></tr>`,
+            `<tr><td><input type="checkbox" data-master-check value="${escapeHtml(master.id)}" /></td><td><strong>${escapeHtml(master.name)}</strong><small>${escapeHtml(master.id)}</small></td><td>${escapeHtml(master.fixedAt || "-")}</td><td><span class="tag ${master.fixed === false ? "orange" : "green"}">${master.fixed === false ? "고정 해제" : "고정"}</span></td><td>${workspace.fixedMaster?.id === master.id ? "현재 기준" : "이력"}</td></tr>`,
         )
         .join("")
     : `<tr><td colspan="5">등록된 자사상품 마스터가 없습니다.</td></tr>`;
@@ -3358,13 +3359,17 @@ function dashOpsMoveLabel(status) {
 
 let dashOpsListFilter = "all";
 let dashOpsLastRows = [];
-let dashOpsSortKey = "afterShip";
-let dashOpsSortDir = "asc";
+let dashOpsSortKey = "stockTotal";
+let dashOpsSortDir = "desc";
 let dashOpsMinusOnly = false;
+
+function getDashOpsShortfall(row) {
+  return Math.max(0, Number(row.demand || 0) - Number(row.stockMain || 0));
+}
 
 function filterDashOpsRows(rows, filter) {
   let list = rows || [];
-  if (filter === "risk") list = list.filter((r) => r.isRisk || (Number(r.afterShip ?? (r.stockTotal - r.demand)) < 0));
+  if (filter === "risk") list = list.filter((r) => getDashOpsShortfall(r) > 0);
   if (filter === "pending") list = list.filter((r) => Number(r.demand || 0) > 0);
   if (filter === "inbound") list = list.filter((r) => Number(r.inboundQty || 0) > 0);
   if (filter === "retailDone") list = list.filter((r) => Number(r.retailDoneQty || 0) > 0);
@@ -3393,6 +3398,10 @@ function sortDashOpsRows(rows) {
     if (key === "afterShip") {
       av = a.afterShip != null ? a.afterShip : Number(a.stockTotal || 0) - Number(a.demand || 0);
       bv = b.afterShip != null ? b.afterShip : Number(b.stockTotal || 0) - Number(b.demand || 0);
+    }
+    if (key === "shortfall") {
+      av = getDashOpsShortfall(a);
+      bv = getDashOpsShortfall(b);
     }
     if (typeof av === "string" || typeof bv === "string") {
       return String(av || "").localeCompare(String(bv || ""), "ko") * dir;
@@ -3451,11 +3460,17 @@ function paintDashOpsList(rows) {
 
 function setDashOpsFilter(filter) {
   dashOpsListFilter = filter || "all";
+  dashOpsMinusOnly = false;
+  const minusCheckbox = document.querySelector("#dash-ops-minus-only");
+  if (minusCheckbox) minusCheckbox.checked = false;
+  dashOpsSortKey = { risk: "shortfall", pending: "demand", inbound: "inboundQty", retailDone: "retailDoneQty" }[dashOpsListFilter] || "stockTotal";
+  dashOpsSortDir = "desc";
   document.querySelectorAll("[data-ops-filter]").forEach((btn) => {
     const on = btn.getAttribute("data-ops-filter") === dashOpsListFilter;
     btn.classList.toggle("is-active", on);
     btn.setAttribute("aria-pressed", on ? "true" : "false");
   });
+  syncDashOpsSortButtons();
   paintDashOpsList(dashOpsLastRows);
 }
 
@@ -3465,15 +3480,19 @@ function setDashOpsSort(key) {
     dashOpsSortDir = dashOpsSortDir === "asc" ? "desc" : "asc";
   } else {
     dashOpsSortKey = key;
-    dashOpsSortDir = key === "productName" || key === "inboundDate" ? "asc" : "asc";
+    dashOpsSortDir = "asc";
   }
+  syncDashOpsSortButtons();
+  paintDashOpsList(dashOpsLastRows);
+}
+
+function syncDashOpsSortButtons() {
   document.querySelectorAll("[data-ops-sort]").forEach((btn) => {
     btn.classList.remove("is-asc", "is-desc");
     if (btn.getAttribute("data-ops-sort") === dashOpsSortKey) {
       btn.classList.add(dashOpsSortDir === "asc" ? "is-asc" : "is-desc");
     }
   });
-  paintDashOpsList(dashOpsLastRows);
 }
 
 async function renderDashboardOpsList() {
@@ -3492,10 +3511,7 @@ async function renderDashboardOpsList() {
   const s = snap.summary || {};
   const rows = snap.grid || [];
   const totalStock = rows.reduce((a, r) => a + Number(r.stockTotal || 0), 0);
-  const shortQty = rows.reduce((a, r) => {
-    const after = r.afterShip != null ? r.afterShip : Number(r.stockTotal || 0) - Number(r.demand || 0);
-    return a + (after < 0 ? Math.abs(after) : 0);
-  }, 0);
+  const shortQty = rows.reduce((sum, row) => sum + getDashOpsShortfall(row), 0);
   const pendingQty = rows.reduce((a, r) => a + Number(r.demand || 0), 0);
   const inboundQty = rows.reduce((a, r) => a + Number(r.inboundQty || 0), 0);
   const retailDoneQty = rows.reduce((a, r) => a + Number(r.retailDoneQty || 0), 0);
@@ -3507,6 +3523,7 @@ async function renderDashboardOpsList() {
   if (sub) sub.textContent = `${s.skuCount ?? rows.length}SKU`;
 
   dashOpsLastRows = rows;
+  syncDashOpsSortButtons();
   document.querySelectorAll("[data-ops-filter]").forEach((btn) => {
     const on = btn.getAttribute("data-ops-filter") === dashOpsListFilter;
     btn.classList.toggle("is-active", on);
@@ -3561,16 +3578,17 @@ async function renderInventoryDashboard() {
   }
 }
 
-async function renderWeeklyInbound() {
+let weeklyInboundRenderRequestId = 0;
+
+async function renderWeeklyInbound(syncDateInputs = false) {
   const body = document.querySelector("#weekly-inbound-body");
   if (!body) return;
+  const requestId = ++weeklyInboundRenderRequestId;
   const count = document.querySelector("#inbound-count");
   const weekLabel = document.querySelector("#inbound-week-label");
   const sourceStatus = document.querySelector("#inbound-source-status");
   const eyebrow = document.querySelector("#inbound-period-eyebrow");
 
-  let targetStart = null;
-  let targetEnd = null;
   const today = new Date();
   let start, end;
 
@@ -3579,36 +3597,34 @@ async function renderWeeklyInbound() {
     nextWeek.setDate(nextWeek.getDate() + 7);
     const range = getWeekRange(nextWeek);
     start = range.start; end = range.end;
-    targetStart = nextWeek;
     if (eyebrow) eyebrow.textContent = "NEXT WEEK";
     if (weekLabel) weekLabel.textContent = `다음 주 스케줄 (${formatDate(start)} ~ ${formatDate(end)})`;
   } else if (windowInboundFilterMode === "custom") {
     start = windowInboundCustomStart;
     end = windowInboundCustomEnd;
-    targetStart = start;
-    targetEnd = end;
     if (eyebrow) eyebrow.textContent = "CUSTOM RANGE";
     if (weekLabel) weekLabel.textContent = `지정 기간 (${formatDate(start)} ~ ${formatDate(end)})`;
   } else {
     const range = getWeekRange(today);
     start = range.start; end = range.end;
-    targetStart = today;
     if (eyebrow) eyebrow.textContent = "THIS WEEK";
     if (weekLabel) weekLabel.textContent = `이번 주 스케줄 (${formatDate(start)} ~ ${formatDate(end)})`;
   }
 
-  const showAllCategoryDates = inboundListStates.inbound.categories.length > 0;
-  if (showAllCategoryDates) {
-    if (eyebrow) eyebrow.textContent = "ALL DATES";
-    if (weekLabel) weekLabel.textContent = `분류 전체 기간 (${inboundListStates.inbound.categories.join(" · ")})`;
+  const dateFrom = document.querySelector("#inbound-date-from");
+  const dateTo = document.querySelector("#inbound-date-to");
+  if (dateFrom && dateTo && (syncDateInputs || (!dateFrom.value && !dateTo.value))) {
+    dateFrom.value = formatDate(start);
+    dateTo.value = formatDate(end);
   }
 
   if (sourceStatus) sourceStatus.textContent = "데이터를 불러오는 중입니다.";
   body.innerHTML = `<tr><td colspan="14">입고예정 데이터를 불러오는 중입니다.</td></tr>`;
   try {
     const rows = await loadStockScheduleRows();
+    if (requestId !== weeklyInboundRenderRequestId) return;
     const metricRows = window.InventoryDashboardEngine?.enrichRowsWithDepletionMetrics(rows, new Date()) || rows;
-    const sourceItems = getWeeklyInboundItems(metricRows, targetStart, targetEnd, showAllCategoryDates).map((item) => ({
+    const sourceItems = getWeeklyInboundItems(metricRows, start, end).map((item) => ({
       ...item,
       메모표시: item.국내스케줄입고메모사항 || item.예정참고품목 || item.완료참고품목 || "",
     }));
@@ -3617,7 +3633,7 @@ async function renderWeeklyInbound() {
     currentInboundItemsByKey = new Map();
     if (count) count.textContent = `${items.length}건`;
     const containerCount = (workspace.containerInboundRecords || []).length;
-    if (sourceStatus) sourceStatus.textContent = `참조 데이터: 입고스케줄(자동)${containerCount ? ` + 컨테이너 파일 ${containerCount}건` : ""} · 전체 ${rows.length}건 기준${showAllCategoryDates ? " · 선택 분류는 전체 기간 적용" : ""}`;
+    if (sourceStatus) sourceStatus.textContent = `참조 데이터: 입고스케줄(자동)${containerCount ? ` + 컨테이너 파일 ${containerCount}건` : ""} · 전체 ${rows.length}건 기준`;
     body.innerHTML = items.length
       ? items
           .map((item) => {
@@ -3638,6 +3654,7 @@ async function renderWeeklyInbound() {
     if (activeInboundHistoryKey && !currentInboundItemsByKey.has(activeInboundHistoryKey)) closeInboundHistory();
     window.tableControllers?.inbound?.resetPage();
   } catch (error) {
+    if (requestId !== weeklyInboundRenderRequestId) return;
     if (count) count.textContent = "오류";
     if (sourceStatus) sourceStatus.textContent = "데이터를 불러오지 못했습니다.";
     body.innerHTML = `<tr><td colspan="14">오류내용: ${escapeHtml(error.message)}</td></tr>`;
@@ -3719,7 +3736,7 @@ function render() {
   if (learningCount) learningCount.textContent = `${workspace.learningHistory.length}건`;
   const history = document.querySelector("#job-history");
   const jobRows = getJobHistoryRows()
-    .map((job) => `<tr><td><input type="checkbox" data-job-check value="${job.id}" /></td><td>${job.작업파일}</td><td>${job.적용마스터}</td><td><span class="tag orange">${job.상태}</span></td><td>${job.실행시각}</td></tr>`)
+    .map((job) => `<tr><td><input type="checkbox" data-job-check value="${escapeHtml(job.id)}" /></td><td>${escapeHtml(job.작업파일)}</td><td>${escapeHtml(job.적용마스터)}</td><td><span class="tag orange">${escapeHtml(job.상태)}</span></td><td>${escapeHtml(job.실행시각)}</td></tr>`)
     .join("");
   history.innerHTML = jobRows;
   renderReviewItems();
@@ -3770,6 +3787,7 @@ function ensureDemoCoordinationLogs() {
   if (!Eng || localStorage.getItem("thezoos-portfolio-coordination-seeded-v2")) return;
   window.PortfolioData.coordination().forEach(entry => Eng.addLog(entry));
   localStorage.setItem("thezoos-portfolio-coordination-seeded-v2", "true");
+  renderInventoryDashboard();
 }
 setTimeout(ensureDemoCoordinationLogs, 300);
 setTimeout(ensureDemoCoordinationLogs, 1200);
@@ -3857,6 +3875,10 @@ document.addEventListener("click", (event) => {
   if (event.target?.id === "dash-ops-refresh") {
     try { renderDashboardOpsList(); } catch (_) {}
     if (typeof showToast === "function") showToast("재고현황을 새로고침했습니다.");
+    return;
+  }
+  if (event.target?.closest?.("#dash-ops-open")) {
+    openPage("ops");
     return;
   }
   const coordFilterCard = event.target?.closest?.("[data-coord-filter]");
@@ -3949,16 +3971,16 @@ document.querySelector("#clear-learning-btn")?.addEventListener("click", () => {
 // --- Additional Event Listeners ---
 document.querySelector("#inbound-this-week")?.addEventListener("click", (e) => {
   document.querySelectorAll(".inbound-period-btn").forEach(btn => btn.classList.remove("active"));
-  e.target.classList.add("active");
+  e.currentTarget.classList.add("active");
   windowInboundFilterMode = "this-week";
-  renderWeeklyInbound();
+  renderWeeklyInbound(true);
 });
 
 document.querySelector("#inbound-next-week")?.addEventListener("click", (e) => {
   document.querySelectorAll(".inbound-period-btn").forEach(btn => btn.classList.remove("active"));
-  e.target.classList.add("active");
+  e.currentTarget.classList.add("active");
   windowInboundFilterMode = "next-week";
-  renderWeeklyInbound();
+  renderWeeklyInbound(true);
 });
 
 document.querySelector("#inbound-custom-range")?.addEventListener("click", () => {
@@ -3967,14 +3989,16 @@ document.querySelector("#inbound-custom-range")?.addEventListener("click", () =>
   if (!fromStr || !toStr) {
     return showToast("조회할 시작일과 종료일을 모두 선택하세요.");
   }
+  const start = parseInboundDate(fromStr);
+  const end = parseInboundDate(toStr);
+  if (!start || !end || start > end) {
+    return showToast("종료일은 시작일과 같거나 이후여야 합니다.");
+  }
+  end.setHours(23, 59, 59, 999);
   document.querySelectorAll(".inbound-period-btn").forEach(btn => btn.classList.remove("active"));
   windowInboundFilterMode = "custom";
-  windowInboundCustomStart = parseInboundDate(fromStr);
-  
-  const end = parseInboundDate(toStr);
-  if (end) end.setHours(23, 59, 59, 999);
+  windowInboundCustomStart = start;
   windowInboundCustomEnd = end;
-  
   renderWeeklyInbound();
 });
 
@@ -4114,19 +4138,15 @@ document.querySelector("#apply-paste-data")?.addEventListener("click", async () 
 document.querySelector("#fix-master").addEventListener("click", async () => {
   const files = [...(document.querySelector("#master-file").files || [])];
   if (!files.length) return showToast("고정할 자사상품 파일을 선택하세요.");
-  const messages = [];
-  for (const file of files) {
-    const storedMaster = await fileToStoredMaster(file);
-    workspace = replaceFixedMaster(workspace, storedMaster);
-    messages.push(storedMaster.parseMessage);
+  try {
+    const masters = await Promise.all(files.map(fileToStoredMaster));
+    for (const master of masters) workspace = replaceFixedMaster(workspace, master);
+    saveWorkspace();
+    render();
+    showToast(`${files.length}개 마스터를 등록했습니다. ${masters.at(-1).parseMessage}`);
+  } catch (error) {
+    showToast(`마스터 등록 실패: ${error.message}`);
   }
-  const tooLarge = JSON.stringify(workspace).length > 4_500_000;
-  if (tooLarge) {
-    showToast("파일이 커서 브라우저 저장 한도에 가까워졌습니다. 나중에는 서버 저장소가 필요합니다.");
-  }
-  saveWorkspace();
-  render();
-  showToast(`${files.length}개 자사상품 마스터를 등록했습니다. ${messages.at(-1) || "마지막 파일을 현재 기준으로 고정했습니다."}`);
 });
 
 function calculateMatchScore(sourceText, targetText) {
@@ -4147,7 +4167,10 @@ function calculateMatchScore(sourceText, targetText) {
 }
 
 document.querySelector("#order-file").addEventListener("change", () => {
-  document.querySelector("#order-file-name").textContent = fileNames("#order-file");
+  const input = document.querySelector("#order-file");
+  document.querySelector("#order-file-name").textContent = input.files?.length
+    ? fileNames("#order-file")
+    : window.PortfolioData.demoOrderFile().name;
 });
 
 document.querySelector("#start-mapping-legacy-disabled")?.addEventListener("click", async () => {
@@ -4385,6 +4408,7 @@ function decisionToReviewItem(decision, index) {
     threshold: 95,
     mismatches: decision.mismatches,
     decisionText: decision.decisionText,
+    finalStatus: decision.finalStatus,
     minimumDecision: decision.minimumDecision,
     productDecision: decision.productDecision,
     quantityDecision: decision.quantityDecision,
@@ -4392,28 +4416,47 @@ function decisionToReviewItem(decision, index) {
   };
 }
 
+document.querySelector("#download-demo-order")?.addEventListener("click", () => {
+  const { name, matrix: [headers, ...rows] } = window.PortfolioData.demoOrderFile();
+  downloadStoredFile({
+    fileName: name,
+    mimeType: "text/csv;charset=utf-8",
+    content: toCsv(rows.map(row => Object.fromEntries(headers.map((header, index) => [header, row[index]])))),
+  });
+});
+
 document.querySelector("#start-mapping").addEventListener("click", async () => {
-  const files = [...(document.querySelector("#order-file").files || [])];
-  if (!files.length) return showToast("주문정보 파일을 선택하세요.");
+  const uploads = [...(document.querySelector("#order-file").files || [])];
+  if (!workspace.fixedMaster || workspace.fixedMaster.fixed === false) return showToast("자사상품 마스터를 먼저 고정해주세요.");
   if (!window.MappingEngine) return showToast("매핑 판정 모듈을 불러오지 못했습니다.");
 
   try {
-    if (!window.XLSX) await loadScript("https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js");
+    if (uploads.length && !window.XLSX) await loadScript("https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js");
+    const files = uploads.length ? uploads : [window.PortfolioData.demoOrderFile()];
     const resultsByFile = [];
     for (const file of files) {
-      const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data, { type: "array" });
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" });
-      const normalized = MappingEngine.normalizeRows(matrix);
-      resultsByFile.push(MappingEngine.judgeMappings(normalized, workspace.learningHistory || []));
+      try {
+        let matrix = file.matrix;
+        if (!matrix) {
+          const data = await file.arrayBuffer();
+          const workbook = XLSX.read(data, { type: "array" });
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          if (!sheet) throw new Error("분석할 주문 행이 없습니다.");
+          matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" });
+        }
+        const normalized = MappingEngine.normalizeRows(matrix);
+        if (!normalized.length) throw new Error("분석할 주문 행이 없습니다.");
+        resultsByFile.push(MappingEngine.judgeMappings(normalized, workspace.learningHistory || []));
+      } catch (error) {
+        throw new Error(`${file.name}: ${error.message}`);
+      }
     }
 
     const decisions = resultsByFile.flat();
     decisions.forEach((decision, index) => {
       if (!decision.reviewId) decision.reviewId = `review-${Date.now()}-${index}`;
     });
-    const reviewNeeded = decisions.filter((decision) => MappingEngine.needsQuantityCorrection(decision));
+    const reviewNeeded = decisions.filter(needsMappingReview);
     workspace = startMappingJobs(workspace, files, resultsByFile);
     workspace.mappingDecisions = decisions;
     workspace.mappingPreviewRows = decisions.map(decisionToPreviewRow);
@@ -4433,7 +4476,9 @@ document.querySelector("#start-mapping").addEventListener("click", async () => {
       document.querySelector("#low-accuracy-modal").hidden = false;
     } else {
       document.querySelector("#total-parsed-count-complete").textContent = totalCount;
-      document.querySelector("#mapping-complete-modal").hidden = false;
+      const modal = document.querySelector("#mapping-complete-modal");
+      modal.dataset.jobIds = JSON.stringify(workspace.jobs.slice(0, files.length).map(job => job.id));
+      modal.hidden = false;
     }
     showToast(`${files.length}개 파일 · ${totalCount}건 판정 완료 · 수정 필요 ${reviewNeeded.length}건`);
   } catch (error) {
@@ -4458,7 +4503,7 @@ document.querySelector("#go-to-history-btn")?.addEventListener("click", (e) => {
 document.querySelector("#download-excel-now-btn")?.addEventListener("click", (e) => {
   const modal = e.target.closest('.modal-overlay');
   if (modal) modal.hidden = true;
-  showToast("엑셀 파일 다운로드를 시작합니다.");
+  downloadJobHistory("excel", JSON.parse(modal?.dataset.jobIds || "[]"));
 });
 
 document.querySelector("#manual-file")?.addEventListener("change", () => {
@@ -4672,7 +4717,7 @@ function syncConfirmedDateToCoordination(barcode, productName, plannedDate, conf
     vendor: existing?.vendor || "",
     reqContent: existing?.reqContent || (confirmedDate ? "발주확정일 지정" : "확정일/메모 수정"),
     originalPlannedDate: plannedDate || existing?.originalPlannedDate || "",
-    confirmedDate: confirmedDate || existing?.confirmedDate || "",
+    confirmedDate: confirmedDate != null ? confirmedDate : (existing?.confirmedDate || ""),
     memo: memo != null ? String(memo).trim() : (existing?.memo || ""),
     type: "",
     requester: existing?.requester || "입고리스트",
@@ -4703,10 +4748,11 @@ function getStockByBarcodeMap() {
   rows.forEach((row) => {
     const code = normalizeProductBarcode(row?.바코드 || row?.barcode || row?.상품코드);
     if (!code) return;
-    const stock = Number(String(row?.현재고 ?? "").replace(/,/g, ""));
-    if (!Number.isFinite(stock)) return;
-    // 동일 바코드 여러 행이면 최대 현재고(또는 마지막 값) 사용
-    if (map[code] === undefined) map[code] = stock;
+    const raw = String(row?.현재고 ?? "").trim().replace(/,/g, "");
+    const stock = raw ? Number(raw) : NaN;
+    if (!Number.isFinite(stock) || map[code] !== undefined) return;
+    const reservedConsumption = window.SmartstoreInventoryEngine?.getConsumedQuantity?.(workspace.smartstoreReservations || [], row) || 0;
+    map[code] = Math.max(0, stock - reservedConsumption);
   });
   return map;
 }
@@ -5073,10 +5119,8 @@ window.refreshInboundSchedule = function refreshInboundSchedule(rows) {
     try {
       if (window.InboundCoordinationEngine && Array.isArray(rows) && rows.length) {
         const applied = window.InboundCoordinationEngine.applyConfirmedToSchedule(rows);
-        if (applied.appliedCount > 0) {
-          stockScheduleCache = applied.rows;
-          return applied.rows;
-        }
+        stockScheduleCache = applied.rows;
+        return applied.rows;
       }
     } catch (e) {
       console.warn("[coord] applyConfirmed", e);

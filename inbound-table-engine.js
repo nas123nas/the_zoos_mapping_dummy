@@ -316,14 +316,17 @@
   }
 
   function getRecentInboundQuantity(row) {
-    const candidates = [
-      "국내최근입고수량",
-      "국내 최근입고 수량",
-      "수입최근입고수량",
-      "수입입고수량",
-      "최근입고수량",
-      "최근수량",
-    ];
+    const domestic = ["국내최근입고수량", "국내 최근입고 수량", "최근수량"];
+    const imported = ["수입최근입고수량", "수입입고수량", "완료수량"];
+    const domesticDate = parseDateValue(row?.국내최근입고일);
+    const importDate = parseDateValue(firstNonBlank(row?.입고일, row?.수입입고일));
+    const origin = importDate && (!domesticDate || importDate > domesticDate)
+      ? "수입" : domesticDate ? "국내" : getOriginCategory(row);
+    const candidates = origin === "수입"
+      ? [...imported, "최근입고수량", ...domestic]
+      : origin === "국내"
+        ? [...domestic, "최근입고수량", ...imported]
+        : ["최근입고수량", ...domestic, ...imported];
     const entries = Object.entries(row || {});
     for (const candidate of candidates) {
       const entry = entries.find(([key]) => normalizedHeader(key) === normalizedHeader(candidate));

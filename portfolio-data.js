@@ -1,5 +1,5 @@
 /** Fictional portfolio fixtures. No operational data or external data source. */
-(function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;if(root)root.PortfolioData=api;})(typeof window!=='undefined'?window:globalThis,function(){
+(function(root,factory){const api=factory(root);if(typeof module==='object'&&module.exports)module.exports=api;if(root)root.PortfolioData=api;})(typeof window!=='undefined'?window:globalThis,function(root){
   "use strict";
   const catalog = [
   {
@@ -304,12 +304,32 @@
     const imported=i%3===2, recent=day(-5-i%24), next=day(1+i%14), qty=40+i%9*20;
     return {바코드:p.barcode,상품명:p.productName,제품명:p.productName,대분류:category(p.productName),현재고:stock,품절일자:stock<=12?day(-1-i%7):'',최근입고:recent,최근입고수량:qty,다음입고:next,다음입고예정수량:qty+20,입고구분:imported?'수입':'국내',컨테이너:imported?'DEMO-C'+String(i%6+1).padStart(2,'0'):'',BL:imported?'DEMO-BL-'+String(i%6+1).padStart(2,'0'):'',업체:vendor(i),최근입고업체:vendor(i),다음입고업체:vendor(i),국내업체:imported?'':vendor(i),수입업체:imported?vendor(i):'',수입예정업체:imported?vendor(i):'',입고예정일:next,입고예상일:next,국내다음계획일:imported?'':next,국내최근입고일:imported?'':recent,최근수량:qty,국내최근입고수량:imported?0:qty,완료수량:qty,수입최근입고수량:imported?qty:0,수입입고수량:imported?qty:0,국내다음입고예정수량:imported?0:qty+20,수입예정입고수량:imported?qty+20:0,일평균소진량:[2.4,1.9,1.1,1.5,0.4,0.5,0.3][i%7],메모:['데모: 안전재고 확보','데모: 시즌 물량','데모: 리오더','데모: 행사 대비'][i%4],국내스케줄입고메모사항:'데모 일정',예정참고품목:'반려동물 용품 데모',시즌코드:/후디|올인원/.test(p.productName)?'FW':'',단종:i===54?'단종':''};
   });}
+  function demoOrderMatrix(batch, start, count, includeMismatch){
+    const headers = ['주문번호','상품명','주문수량','연결된 상품코드','연결된 상품명','매핑수량'];
+    const rows = catalog.slice(start, start + count).map((product, index) => {
+      const quantity = 2 + index % 3;
+      const mappedQuantity = includeMismatch && index % 5 === 1 ? quantity - 1 : quantity;
+      return [`DEMO-${batch}-${String(index + 1).padStart(3, '0')}`, product.productName, quantity, product.productCode, product.productName, mappedQuantity];
+    });
+    return [headers, ...rows];
+  }
+  function demoOrderFile(){
+    return {name:'주문_데모_기본.csv', matrix:demoOrderMatrix('BASE',0,12,true)};
+  }
+  function demoJobResultRows(id){
+    const match = /^job-demo-([0-7])$/.exec(id);
+    const engine = root.MappingEngine || (typeof module === 'object' && module.exports ? require('./mapping-engine.js') : null);
+    if (!match || !engine) return [];
+    const index = Number(match[1]);
+    const matrix = demoOrderMatrix(`H${index + 1}`, index * 5, 5, index % 3 === 1);
+    return engine.judgeMappings(engine.normalizeRows(matrix));
+  }
   function workspace(){
     const rows=schedule();
     const reviews=catalog.filter((_,i)=>i%5===1).map((p,i)=>({id:'rv-demo-'+i,orderNo:'D'+day().replaceAll('-','')+'-'+String(i+1).padStart(3,'0'),orderProduct:p.productName.replace(/ (S|M|L|XS)$/,''),option1:p.productName.split(' ').at(-1),option2:'1개',recommendedProduct:p.productName,mappedProduct:p.productName,productCode:p.productCode,orderQuantity:2+i%2,expectedQuantity:2+i%2,mappedQuantity:1,accuracy:84+i%7,threshold:95,barcode:p.barcode,status:'대기',mismatches:[i%2?'상품명 유사':'옵션 확인'],createdAt:day(-i%4)}));
     const mapping=catalog.slice(0,24).map((p,i)=>{const review=reviews.find(r=>r.barcode===p.barcode);const qty=review?.orderQuantity||1+i%3;return {주문번호:review?.orderNo||'D'+day().replaceAll('-','')+'-'+String(100+i).padStart(3,'0'),주문내용:p.productName+' '+qty+'개',옵션1:p.productName.split(' ').at(-1),옵션2:qty+'개',자사상품명:p.productName,수량:qty,비고:'데모 매핑',최종판정:review?'확인필요':'자동매핑',판정내용:review?'옵션 확인':'상품명·규격 일치'};});
     const masterHistory=Array.from({length:4},(_,i)=>({id:'master-demo-'+i,name:'자사상품_데모마스터_v'+(4-i)+'.xlsx',fixedAt:day(-i*7),owner:'공용',fixed:i===0,productCatalog:catalog.map(p=>({...p}))}));
-    return {productCatalog:catalog.map(p=>({...p})),mappingPreviewRows:mapping,orderAnalysisRows:catalog.map((p,i)=>({주문사:['더조스몰','스마트스토어','도매몰','쿠팡','자사몰'][i%5],자사상품명:p.productName,수량:12+i%11*9})),reviewItems:reviews,learningHistory:catalog.slice(24,36).map((p,i)=>({id:'ln-demo-'+i,reviewItemId:'rv-resolved-'+i,timestamp:Date.parse(day(-i-1)+'T10:00:00+09:00'),sourceText:p.productName,option1:p.productName.split(' ').at(-1),option2:'2개',mappedProduct:p.productName,mappedQuantity:2})),jobs:Array.from({length:8},(_,i)=>({id:'job-demo-'+i,fileName:'주문_데모_'+day(-i)+'.xlsx',orderName:'주문_데모_'+day(-i)+'.xlsx',masterName:masterHistory[0].name,status:i%3===1?'검토 필요':'완료',ranAt:day(-i)+' 10:20',createdAt:day(-i)+'T10:20:00',selected:false})),masterHistory,fixedMaster:masterHistory[0],smartstoreReservations:rows.filter(r=>r.현재고>=15).slice(0,12).map(r=>({productCode:r.바코드,quantity:Math.min(10,Math.floor(r.현재고/2))})),expiryLots:rows.filter(r=>r.대분류==='간식'&&r.현재고>0).map((r,i)=>({id:'lot-demo-'+i,barcode:r.바코드,productName:r.상품명,quantity:r.현재고,inboundDate:r.최근입고,manufacturedDate:day(-90-i),expiryDate:expiryFrom(day(-90-i)),note:'데모 입고 로트',sourceType:'manual',sourceFile:'데모_입고내역.xlsx',createdAt:day(-1)+'T09:00:00'})),orderAnalysisUpdatedAt:day()};
+    return {productCatalog:catalog.map(p=>({...p})),mappingPreviewRows:mapping,orderAnalysisRows:catalog.map((p,i)=>({주문사:['더조스몰','스마트스토어','도매몰','쿠팡','자사몰'][i%5],자사상품명:p.productName,수량:12+i%11*9})),reviewItems:reviews,learningHistory:catalog.slice(24,36).map((p,i)=>({id:'ln-demo-'+i,reviewItemId:'rv-resolved-'+i,timestamp:Date.parse(day(-i-1)+'T10:00:00+09:00'),sourceText:p.productName,option1:p.productName.split(' ').at(-1),option2:'2개',mappedProduct:p.productName,mappedQuantity:2})),jobs:Array.from({length:8},(_,i)=>{const id='job-demo-'+i;const resultRows=demoJobResultRows(id);return {id,fileName:'주문_데모_'+day(-i)+'.xlsx',orderName:'주문_데모_'+day(-i)+'.xlsx',masterName:masterHistory[0].name,status:resultRows.some(row=>row.finalStatus!=='정상')?'검토 필요':'완료',ranAt:day(-i)+' 10:20',createdAt:day(-i)+'T10:20:00',selected:false,resultRows};}),masterHistory,fixedMaster:masterHistory[0],smartstoreReservations:rows.filter(r=>r.현재고>=15).slice(0,12).map(r=>({productCode:r.바코드,quantity:Math.min(10,Math.floor(r.현재고/2))})),expiryLots:rows.filter(r=>r.대분류==='간식'&&r.현재고>0).map((r,i)=>({id:'lot-demo-'+i,barcode:r.바코드,productName:r.상품명,quantity:r.현재고,inboundDate:r.최근입고,manufacturedDate:day(i<3?-537+i*6:-90-i),expiryDate:expiryFrom(day(i<3?-537+i*6:-90-i)),note:'데모 입고 로트',sourceType:'manual',sourceFile:'데모_입고내역.xlsx',createdAt:day(-1)+'T09:00:00'})),orderAnalysisUpdatedAt:day()};
   }
   function expiryFrom(s){const d=new Date(s+'T12:00:00Z');const n=d.getUTCDate();d.setUTCDate(1);d.setUTCMonth(d.getUTCMonth()+18);const last=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0)).getUTCDate();d.setUTCDate(Math.min(n,last)-1);return d.toISOString().slice(0,10);}
   function coordination(){return schedule().slice(0,24).map((r,i)=>({barcode:r.바코드,productName:r.상품명,vendor:r.업체,reqDate:i%3===2?day(-7-i%24):day(-4-i%8),reqContent:['입고 일정 확인 요청','추가 발주분 일정 조율','품절 대비 입고 앞당김'][i%3],reply:i%3===0?'':i%3===1?'일정 확정':'입고 완료',confirmedDate:i%3===0?'':i%3===1?r.다음입고:r.최근입고,status:['회신대기','업체조율확정','입고완료'][i%3],type:['앞당김','지연','기타'][i%3],memo:'데모 협의'}));}
@@ -325,5 +345,5 @@
     const movement=Object.fromEntries(rows.slice(0,16).map((r,i)=>[r.바코드,{qty:10+i*2,status:['need_request','ordered','in_transit','received'][i%4],eta:day(i%4===3?-1:1+i%5)+' 11:00',from:'3PL-가상센터',to:'메인창고'}]));
     return {catalog:catalog.map(p=>({sku:p.barcode,productName:p.productName,category:category(p.productName)})),zoneStock:{zones,bySku},wholesalePending,wholesaleDone,retailAll,pendingSlips,inboundLines,movement};
   }
-  return {catalog,schedule,workspace,coordination,ops,day};
+  return {catalog,schedule,workspace,coordination,ops,day,demoOrderFile,demoJobResultRows};
 });

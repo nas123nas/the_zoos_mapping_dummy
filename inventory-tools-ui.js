@@ -10,13 +10,29 @@
   }
 
   function quantity(value) {
-    const number = Number(String(value ?? "").replace(/,/g, "").replace(/[^\d.-]/g, ""));
-    return Number.isFinite(number) ? number : 0;
+    const text = String(value ?? "").trim().replace(/,/g, "");
+    const number = text ? Number(text) : NaN;
+    return Number.isSafeInteger(number) && number >= 0 ? number : null;
   }
+
+  const reservationEngine = window.SmartstoreInventoryEngine;
+  const lotEngine = window.ExpiryLotEngine;
+  const numberLabel = (value) => value.toLocaleString("ko-KR");
+  const barcodeFor = (row) => reservationEngine.normalizeCode(row?.바코드 || row?.barcode || reservationEngine.productCode(row));
 
   async function products() {
     try {
-      cachedProducts = await loadStockScheduleRows();
+      const rows = await loadStockScheduleRows();
+      const deduped = new Map();
+      for (const row of rows || []) {
+        const barcode = barcodeFor(row);
+        if (!barcode) continue;
+        const previous = deduped.get(barcode);
+        if (!previous || (quantity(previous.현재고 ?? previous.stock) === null && quantity(row.현재고 ?? row.stock) !== null)) {
+          deduped.set(barcode, row);
+        }
+      }
+      cachedProducts = [...deduped.values()];
     } catch (_) {
       cachedProducts = cachedProducts.length ? cachedProducts : (workspace.containerInboundRecords || []);
     }
@@ -24,22 +40,62 @@
   }
 
   function findProduct(code, rows = cachedProducts) {
-    const target = String(code || "").trim();
-    return (rows || []).find((row) => window.SmartstoreInventoryEngine.productCode(row) === target) || null;
+    const target = reservationEngine.normalizeCode(code);
+    return (rows || []).find((row) => reservationEngine.productCode(row) === target || barcodeFor(row) === target) || null;
+  }
+
+  function stockForReservations(rows) {
+    const consumed = lotEngine?.consumedStockByBarcode(workspace.expiryLots);
+    return rows.map((row) => ({
+      ...row,
+      현재고: Math.max(0, (quantity(row.현재고 ?? row.stock) || 0) - (consumed?.[barcodeFor(row)] || 0)),
+    }));
+  }
+
+  function stockForLots(rows) {
+    const stock = Object.create(null);
+    for (const row of rows) {
+      const barcode = barcodeFor(row);
+      const actual = quantity(row.현재고 ?? row.stock);
+      if (barcode && actual !== null) {
+        stock[barcode] = Math.max(0, actual - reservationEngine.getConsumedQuantity(workspace.smartstoreReservations, row));
+      }
+    }
+    return stock;
+  }
+
+  function consumptionControl(kind, maximum) {
+    if (maximum < 1) return "—";
+    return `<input type="number" min="1" max="${maximum}" step="1" data-${kind}-quantity aria-label="차감수량" placeholder="수량" style="width:80px" />
+      <button type="button" class="secondary compact-button" data-${kind}-consume>차감</button>`;
   }
 
   async function renderSmartstore() {
     const body = document.querySelector("#smartstore-body");
     if (!body) return;
-    const rows = await products();
+    const rows = stockForReservations(await products());
     const reservations = workspace.smartstoreReservations || [];
-    document.querySelector("#smartstore-count").textContent = `${reservations.length}건`;
-    body.innerHTML = reservations.length ? reservations.map((reservation) => {
+    const vendors = [...new Set(reservations.map((item) => reservationEngine.vendorName(item.vendor)))].sort((a, b) => a.localeCompare(b, "ko-KR"));
+    const filter = document.querySelector("#smartstore-vendor-filter");
+    const selected = vendors.includes(filter?.value) ? filter.value : "";
+    const options = vendors.map((vendor) => `<option value="${safe(vendor)}">${safe(vendor)}</option>`).join("");
+    if (filter) {
+      filter.innerHTML = '<option value="">전체 거래처</option>' + options;
+      filter.value = selected;
+    }
+    const suggestions = document.querySelector("#smartstore-vendor-options");
+    if (suggestions) suggestions.innerHTML = options;
+    const displayed = selected ? reservations.filter((item) => reservationEngine.vendorName(item.vendor) === selected) : reservations;
+    document.querySelector("#smartstore-count").textContent = `${displayed.length}건`;
+    body.innerHTML = displayed.length ? displayed.map((reservation) => {
       const product = findProduct(reservation.productCode, rows) || { 상품코드: reservation.productCode, 현재고: 0 };
-      const availability = window.SmartstoreInventoryEngine.summarizeAvailability(product, reservations);
-      const status = availability.status === "smartstore-available" ? "스마트스토어 출고가능" : "전용 재고 보유";
-      return `<tr><td>${safe(reservation.productCode)}</td><td>${safe(product.상품명 || product.제품명 || "-")}</td><td>${availability.totalStock.toLocaleString("ko-KR")}</td><td>${availability.regularAvailable.toLocaleString("ko-KR")}</td><td><b>${availability.smartstoreReserved.toLocaleString("ko-KR")}</b></td><td><span class="tag blue">${status}</span></td><td><button type="button" class="secondary compact-button" data-smartstore-delete="${safe(reservation.productCode)}">삭제</button></td></tr>`;
-    }).join("") : `<tr><td colspan="7">등록된 전용 재고가 없습니다.</td></tr>`;
+      const availability = reservationEngine.summarizeAvailability(product, reservations);
+      const balance = reservationEngine.reservationBalance(reservation);
+      const vendor = reservationEngine.vendorName(reservation.vendor);
+      const maximum = Math.min(balance.remaining, availability.totalStock);
+      const status = !balance.remaining ? "차감 완료" : !maximum ? "현재고 부족" : balance.consumed ? "일부 차감" : "사용 가능";
+      return `<tr data-product-code="${safe(reservation.productCode)}" data-vendor="${safe(vendor)}"><td>${safe(reservation.productCode)}</td><td>${safe(product.상품명 || product.제품명 || "-")}</td><td>${safe(vendor)}</td><td>${numberLabel(availability.totalStock)}</td><td>${numberLabel(availability.regularAvailable)}</td><td>${numberLabel(balance.registered)}</td><td>${numberLabel(balance.consumed)}</td><td><b>${numberLabel(balance.remaining)}</b></td><td><span class="tag blue">${status}</span></td><td>${consumptionControl("smartstore", maximum)}</td></tr>`;
+    }).join("") : `<tr><td colspan="10">등록된 전용 재고가 없습니다.</td></tr>`;
   }
 
   async function renderExpiry() {
@@ -49,15 +105,9 @@
       body.closest(".panel")?.insertAdjacentHTML("beforebegin", `<section id="expiry-allocation-summary" class="panel product-detail-summary"><article><span>등록 품목 전체 현재고</span><b id="expiry-current-stock">0개</b></article><article><span>유통기한 지정 수량</span><b id="expiry-assigned-stock">0개</b></article><article><span>유통기한 미지정 수량</span><b id="expiry-unassigned-stock">0개</b></article><p class="form-help">업로드 수량은 현재고를 추가하지 않고, 기존 현재고 안에서 유통기한이 지정된 수량으로만 반영됩니다.</p></section>`);
     }
     const rows = await products();
-    const stockByBarcode = {};
-    const names = {};
-    rows.forEach((row) => {
-      const barcode = window.ExpiryLotEngine.normalizeBarcode(row.바코드 || row.상품코드);
-      if (!barcode) return;
-      stockByBarcode[barcode] = quantity(row.현재고);
-      names[barcode] = row.상품명 || row.제품명 || "";
-    });
-    const allocation = window.ExpiryLotEngine.summarizeStockAllocation(workspace.expiryLots || [], stockByBarcode);
+    const stockByBarcode = stockForLots(rows);
+    const names = new Map(rows.map((row) => [barcodeFor(row), row.상품명 || row.제품명 || ""]));
+    const allocation = lotEngine.summarizeStockAllocation(workspace.expiryLots, stockByBarcode);
     const remaining = allocation.remainingLots;
     const registeredBarcodes = new Set((workspace.expiryLots || []).map((lot) => window.ExpiryLotEngine.normalizeBarcode(lot?.barcode)).filter(Boolean));
     const totals = [...registeredBarcodes].reduce((summary, barcode) => {
@@ -73,20 +123,53 @@
     if (currentStockNode) currentStockNode.textContent = `${totals.currentStock.toLocaleString("ko-KR")}개`;
     if (assignedNode) assignedNode.textContent = `${totals.expiryAssigned.toLocaleString("ko-KR")}개`;
     if (unassignedNode) unassignedNode.textContent = `${totals.expiryUnassigned.toLocaleString("ko-KR")}개`;
-    document.querySelector("#expiry-count").textContent = `${remaining.length}건`;
-    body.innerHTML = remaining.length ? remaining.map((lot) => {
+    const visible = new Map(remaining.map((lot) => [String(lot.id), lot]));
+    for (const lot of workspace.expiryLots) {
+      if (!visible.has(String(lot.id)) && lotEngine.lotConsumedQuantity(lot)) {
+        visible.set(String(lot.id), { ...lot, remainingQuantity: 0 });
+      }
+    }
+    const filter = document.querySelector("#expiry-filter")?.value || "all";
+    const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul" }).format(new Date());
+    const displayed = [...visible.values()].filter((lot) => filter === "all" ||
+      (lot.remainingQuantity > 0 && lotEngine.expiryStatus(lot.expiryDate, today) === filter));
+    document.querySelector("#expiry-count").textContent = `${displayed.length}건`;
+    body.innerHTML = displayed.length ? displayed.map((lot) => {
       const inboundQty = Number(lot.quantity);
-      const remainQty = Number(lot.remainingQuantity);
-      return `<tr data-lot-id="${safe(lot.id)}"><td>${safe(lot.inboundDate)}</td><td>${safe(lot.barcode)}</td><td>${safe(lot.productName || names[lot.barcode] || "-")}</td><td><input type="number" class="expiry-lot-qty" data-lot-id="${safe(lot.id)}" data-field="quantity" min="0" step="1" value="${Number.isFinite(inboundQty) ? inboundQty : ""}" title="입고 수량" /><small class="expiry-remain-hint">잔여 ${Number.isFinite(remainQty) ? remainQty.toLocaleString("ko-KR") : "-"}</small></td><td><input type="date" class="expiry-lot-date" data-lot-id="${safe(lot.id)}" data-field="manufacturedDate" value="${safe(lot.manufacturedDate || "")}" title="제조일자" /></td><td><input type="date" class="expiry-lot-date" data-lot-id="${safe(lot.id)}" data-field="expiryDate" value="${safe(lot.expiryDate || "")}" title="유통기한" /></td><td>${safe(lot.note)}</td><td>${safe(lot.sourceFile)}</td><td><button type="button" class="secondary compact-button" data-expiry-delete="${safe(lot.id)}">삭제</button></td></tr>`;
-    }).join("") : `<tr><td colspan="9">현재고에 남아 있는 등록 로트가 없습니다.</td></tr>`;
+      const remainQty = lot.remainingQuantity;
+      const consumed = lotEngine.lotConsumedQuantity(lot);
+      const timing = lotEngine.expiryStatus(lot.expiryDate, today);
+      const status = !remainQty ? "잔량 없음" : timing === "near" ? "임박" : timing === "expired" ? "기한 경과" : consumed ? "일부 차감" : "보유";
+      return `<tr data-lot-id="${safe(lot.id)}"><td>${safe(lot.inboundDate)}</td><td>${safe(lot.barcode)}</td><td>${safe(lot.productName || names.get(lot.barcode) || "-")}</td><td><input type="number" class="expiry-lot-qty" data-lot-id="${safe(lot.id)}" data-field="quantity" min="${Math.max(1, consumed)}" step="1" value="${Number.isFinite(inboundQty) ? inboundQty : ""}" title="입고 수량" /><small class="expiry-remain-hint">차감 ${numberLabel(consumed)} · 잔량 ${numberLabel(remainQty)} · ${status}</small></td><td><input type="date" class="expiry-lot-date" data-lot-id="${safe(lot.id)}" data-field="manufacturedDate" value="${safe(lot.manufacturedDate || "")}" title="제조일자" /></td><td><input type="date" class="expiry-lot-date" data-lot-id="${safe(lot.id)}" data-field="expiryDate" value="${safe(lot.expiryDate || "")}" title="유통기한" /></td><td>${safe(lot.note)}</td><td>${safe(lot.sourceFile)}</td><td>${consumptionControl("expiry", remainQty)}</td></tr>`;
+    }).join("") : `<tr><td colspan="9">표시할 유통기한 로트가 없습니다.</td></tr>`;
   }
 
+  document.querySelector("#smartstore-form")?.insertAdjacentHTML?.("afterbegin",
+    '<label>거래처<input id="smartstore-vendor" list="smartstore-vendor-options" value="스마트스토어" maxlength="80" placeholder="거래처명" /></label><datalist id="smartstore-vendor-options"></datalist>');
+  const vendorHeaders = document.querySelector("#smartstore thead tr");
+  if (vendorHeaders) vendorHeaders.innerHTML = "<th>상품코드</th><th>상품명</th><th>거래처</th><th>전체 현재고</th><th>일반 판매 가능</th><th>등록 수량</th><th>차감 수량</th><th>전용 잔량</th><th>상태</th><th>관리</th>";
+  const vendorTitle = document.querySelector("#smartstore .page-heading h2");
+  if (vendorTitle) vendorTitle.textContent = "거래처별 전용 재고";
+  const vendorDescription = document.querySelector("#smartstore .page-heading p:last-child");
+  if (vendorDescription) vendorDescription.textContent = "같은 상품을 여러 거래처에 배정하고, 출고하거나 사용한 수량을 차감할 수 있습니다.";
+  const vendorListTitle = document.querySelector("#smartstore .section-title h3");
+  if (vendorListTitle) vendorListTitle.textContent = "거래처별 전용 재고 목록";
+  document.querySelector("#smartstore .section-title")?.insertAdjacentHTML?.("beforeend",
+    '<label>거래처 <select id="smartstore-vendor-filter"><option value="">전체 거래처</option></select></label>');
+  document.querySelector("#smartstore-vendor-filter")?.addEventListener("change", renderSmartstore);
+  const fileHelp = document.querySelector("#smartstore-file-status");
+  if (fileHelp) fileHelp.textContent = "엑셀 머리글은 바코드, 전용수량, 거래처(선택)입니다. 거래처가 비어 있으면 스마트스토어로 등록합니다.";
+  const expiryTitle = document.querySelector("#expiry .section-title");
+  expiryTitle?.insertAdjacentHTML?.("beforeend",
+    '<label>유통기한 <select id="expiry-filter"><option value="all">전체</option><option value="near">임박 · 오늘부터 30일 이내</option><option value="expired">기한 경과</option></select></label>');
+  document.querySelector("#expiry-filter")?.addEventListener("change", renderExpiry);
+
   document.querySelector("#download-smartstore-template")?.addEventListener("click", () => {
-    const sheet = XLSX.utils.aoa_to_sheet([["바코드", "전용수량"], ["8800000000000", 1]]);
-    sheet["!cols"] = [{ wch: 18 }, { wch: 12 }];
+    const sheet = XLSX.utils.aoa_to_sheet([["바코드", "전용수량", "거래처"], ["8800000000000", 1, reservationEngine.DEFAULT_VENDOR]]);
+    sheet["!cols"] = [{ wch: 18 }, { wch: 12 }, { wch: 20 }];
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, sheet, "스마트스토어전용재고");
-    XLSX.writeFile(workbook, "스마트스토어_전용재고_등록양식.xlsx");
+    XLSX.utils.book_append_sheet(workbook, sheet, "거래처별전용재고");
+    XLSX.writeFile(workbook, "거래처별_전용재고_등록양식.xlsx");
   });
 
   document.querySelector("#smartstore-file")?.addEventListener("change", async (event) => {
@@ -97,18 +180,20 @@
       const workbook = XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: false });
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" });
-      const result = window.SmartstoreInventoryEngine.parseReservationRows(rows, await products());
+      const productRows = stockForReservations(await products());
+      const parsed = reservationEngine.parseReservationRows(rows, productRows);
+      const result = parsed.ok
+        ? reservationEngine.mergeReservations(workspace.smartstoreReservations, parsed.reservations, productRows)
+        : parsed;
       if (!result.ok) {
         alert(`${result.error}\n파일 전체를 반영하지 않았습니다.`);
         status.textContent = `${file.name} · 반영 실패`;
         return;
       }
-      const merged = new Map((workspace.smartstoreReservations || []).map((item) => [item.productCode, item]));
-      result.reservations.forEach((item) => merged.set(item.productCode, item));
-      workspace.smartstoreReservations = [...merged.values()];
+      workspace.smartstoreReservations = result.reservations;
       saveWorkspace();
-      status.textContent = `${file.name} · ${result.reservations.length}건 반영 완료`;
-      showToast(`스마트스토어 전용 재고 ${result.reservations.length}건을 반영했습니다.`);
+      status.textContent = `${file.name} · ${parsed.reservations.length}건 반영 완료`;
+      showToast(`거래처 전용 재고 ${parsed.reservations.length}건을 반영했습니다.`);
       await renderSmartstore();
     } catch (error) {
       alert(`파일을 읽지 못했습니다. 다시 첨부해주세요.\n${error.message}`);
@@ -120,28 +205,43 @@
 
   document.querySelector("#smartstore-form")?.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const rows = await products();
-    const productCode = document.querySelector("#smartstore-product-code").value.trim();
-    const product = findProduct(productCode, rows);
-    const result = window.SmartstoreInventoryEngine.validateReservation({
-      productCode,
-      quantity: Number(document.querySelector("#smartstore-quantity").value),
-    }, product);
+    const form = event.currentTarget;
+    const code = document.querySelector("#smartstore-product-code").value;
+    const vendor = document.querySelector("#smartstore-vendor")?.value;
+    const requestedQuantity = document.querySelector("#smartstore-quantity").value;
+    const rows = stockForReservations(await products());
+    const product = findProduct(code, rows);
+    const result = reservationEngine.mergeReservations(workspace.smartstoreReservations, [{
+      productCode: reservationEngine.productCode(product),
+      vendor,
+      quantity: requestedQuantity,
+    }], rows);
     if (!result.ok) return showToast(result.error);
-    workspace.smartstoreReservations = (workspace.smartstoreReservations || []).filter((item) => item.productCode !== productCode);
-    workspace.smartstoreReservations.push(result.reservation);
+    workspace.smartstoreReservations = result.reservations;
     saveWorkspace();
-    event.currentTarget.reset();
-    showToast("스마트스토어 전용 재고를 등록했습니다.");
+    form.reset();
+    showToast("거래처 전용 재고를 등록했습니다.");
     await renderSmartstore();
   });
 
   document.querySelector("#smartstore-body")?.addEventListener("click", async (event) => {
-    const code = event.target.closest("[data-smartstore-delete]")?.dataset.smartstoreDelete;
-    if (!code) return;
-    workspace.smartstoreReservations = (workspace.smartstoreReservations || []).filter((item) => item.productCode !== code);
-    saveWorkspace();
-    await renderSmartstore();
+    const button = event.target.closest("[data-smartstore-consume]");
+    if (!button || button.disabled) return;
+    const row = button.closest("tr");
+    const value = row.querySelector("[data-smartstore-quantity]").value;
+    const { productCode, vendor } = row.dataset;
+    button.disabled = true;
+    try {
+      const product = findProduct(productCode, stockForReservations(await products())) || { 상품코드: productCode, 현재고: 0 };
+      const result = reservationEngine.consumeReservation(workspace.smartstoreReservations, productCode, vendor, value, product);
+      if (!result.ok) return showToast(result.error);
+      workspace.smartstoreReservations = result.reservations;
+      saveWorkspace();
+      showToast("전용 재고를 차감했습니다.");
+      await renderSmartstore();
+    } finally {
+      button.disabled = false;
+    }
   });
 
   const manufacturedInput = document.querySelector("#expiry-manufactured-date");
@@ -155,6 +255,7 @@
 
   document.querySelector("#expiry-manual-form")?.addEventListener("submit", async (event) => {
     event.preventDefault();
+    const form = event.currentTarget;
     const result = window.ExpiryLotEngine.normalizeManualLot({
       inboundDate: document.querySelector("#expiry-inbound-date").value,
       barcode: document.querySelector("#expiry-barcode").value,
@@ -168,7 +269,7 @@
     result.lot.productName = row?.상품명 || row?.제품명 || "";
     workspace.expiryLots.push(result.lot);
     saveWorkspace();
-    event.currentTarget.reset();
+    form.reset();
     showToast("유통기한 입고 로트를 등록했습니다.");
     await renderExpiry();
   });
@@ -182,8 +283,8 @@
         <div style="background:#fff;border-radius:12px;width:min(440px,100%);padding:20px;box-shadow:0 16px 40px rgba(0,0,0,.18)">
           <h3 style="margin:0 0 8px;font-size:18px">제조일·유통기한 일괄 반영</h3>
           <p style="margin:0 0 14px;font-size:13px;color:#64748b;line-height:1.5">
-            <b>${meta.fileName || "파일"}</b> · ${lots.length}개 품목 · 합계 ${(meta.actualTotal || 0).toLocaleString("ko-KR")}개<br>
-            ${missing ? `날짜 없는 품목 <b style="color:#c75600">${missing}건</b> — 아래에 넣으면 전체(또는 비어 있는 행)에 반영됩니다.` : "파일에 날짜가 있습니다. 필요 시 일괄 덮어쓸 수 있습니다."}<br>
+            <b>${safe(meta.fileName || "파일")}</b> · ${lots.length}개 품목 · 합계 ${(meta.actualTotal || 0).toLocaleString("ko-KR")}개<br>
+            ${missing ? `날짜 없는 품목 <b style="color:#c75600">${missing}건</b>에 적용됩니다.` : "파일의 날짜를 유지합니다."}<br>
             제조일만 넣으면 <b>18개월-1일</b> 규칙으로 유통기한을 자동 계산합니다.
           </p>
           <label style="display:block;font-size:12px;font-weight:700;color:#64748b;margin-bottom:10px">제조일자
@@ -228,6 +329,8 @@
           return;
         }
         if (act === "apply") {
+          const dates = lotEngine.resolveDates(mfg.value, exp.value);
+          if (!dates.ok) return showToast(dates.error);
           let next = window.ExpiryLotEngine.applyBatchDatesToLots(lots, mfg.value, exp.value);
           const inbound = overlay.querySelector("#batch-inbound")?.value;
           if (inbound) next = next.map((l) => ({ ...l, inboundDate: inbound }));
@@ -272,11 +375,22 @@
   });
 
   document.querySelector("#expiry-body")?.addEventListener("click", async (event) => {
-    const id = event.target.closest("[data-expiry-delete]")?.dataset.expiryDelete;
-    if (!id) return;
-    workspace.expiryLots = (workspace.expiryLots || []).filter((lot) => lot.id !== id);
-    saveWorkspace();
-    await renderExpiry();
+    const button = event.target.closest("[data-expiry-consume]");
+    if (!button || button.disabled) return;
+    const row = button.closest("tr");
+    const value = row.querySelector("[data-expiry-quantity]").value;
+    button.disabled = true;
+    try {
+      const stocks = stockForLots(await products());
+      const result = lotEngine.consumeLot(workspace.expiryLots, stocks, row.dataset.lotId, value);
+      if (!result.ok) return showToast(result.error);
+      workspace.expiryLots = result.lots;
+      saveWorkspace();
+      showToast("로트 재고를 차감했습니다.");
+      await renderExpiry();
+    } finally {
+      button.disabled = false;
+    }
   });
 
   document.querySelector("#expiry-body")?.addEventListener("change", async (event) => {
@@ -289,9 +403,10 @@
     if (idx < 0) return;
     const next = { ...lots[idx] };
     if (field === "quantity") {
-      const qty = Number(String(input.value || "").replace(/,/g, ""));
-      if (!Number.isFinite(qty) || qty < 0) {
-        showToast("입고 수량을 확인해주세요.");
+      const qty = quantity(input.value);
+      if (!qty || qty < lotEngine.lotConsumedQuantity(next)) {
+        input.value = next.quantity;
+        showToast("입고수량은 1 이상이며 이미 차감한 수량 이상이어야 합니다.");
         return;
       }
       next.quantity = qty;

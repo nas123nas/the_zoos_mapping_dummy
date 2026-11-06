@@ -330,10 +330,26 @@
     return y + "-" + m + "-" + day + " 14:00";
   }
 
+  function getTransferProposal(row) {
+    const sources = [
+      { from: "3PL-가상센터", stock: num(row.stockTplIcn) },
+      { from: "보조창고", stock: num(row.stockHqB) },
+      { from: "이카운트도매", stock: num(row.stockEcW) },
+    ].sort((a, b) => b.stock - a.stock);
+    const source = sources[0];
+    return { from: source.from, qty: Math.max(0, Math.floor(Math.min(Math.abs(row.shortfall), source.stock))) };
+  }
+
   function requestTransfer(sku, qty, fromWarehouse) {
+    const quantity = Number(qty);
+    const codes = { "3PL-가상센터": "TPL_ICN", "보조창고": "HQ_B", "이카운트도매": "EC_W" };
+    const sourceStock = demoZoneStock().bySku?.[sku]?.[codes[fromWarehouse]];
+    if (!Number.isFinite(quantity) || !Number.isInteger(quantity) || quantity <= 0 || !Number.isFinite(sourceStock) || quantity > sourceStock) {
+      throw new Error("이동 수량은 출발 창고 재고 이내의 양의 정수여야 합니다.");
+    }
     const map = loadLocalMovements();
     map[sku] = {
-      qty: num(qty) || 0,
+      qty: quantity,
       status: MOVEMENT_STATUS.ORDERED,
       eta: nextBusinessEta(),
       from: fromWarehouse || "타창고",
@@ -376,6 +392,7 @@
     buildDemoSnapshot,
     movementLabel,
     requestTransfer,
+    getTransferProposal,
     requestShip,
     loadLocalMovements,
     saveLocalMovements,

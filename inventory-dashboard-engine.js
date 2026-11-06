@@ -126,6 +126,10 @@
         date: parseDate(firstNonBlank(row?.입고일, row?.수입입고일)),
         quantity: parseNumber(firstNonBlank(row?.완료수량, row?.수입최근입고수량, row?.수입입고수량)),
       },
+      {
+        date: parseDate(row?.최근입고),
+        quantity: parseNumber(row?.최근입고수량),
+      },
     ].filter((record) => record.date).sort((left, right) => right.date - left.date)[0] || null;
   }
 

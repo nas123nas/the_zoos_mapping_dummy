@@ -331,7 +331,7 @@
       try {
         if (isEdit) Eng.updateLog(existing.id, data);
         else Eng.addLog(data);
-        if (data.confirmedDate) applyToLiveSchedule();
+        applyToLiveSchedule();
         close();
         renderAll();
         toast(isEdit ? "수정되었습니다." : "등록되었습니다.");
@@ -407,6 +407,7 @@
       if (t.dataset && t.dataset.coordDel) {
         if (confirm("이 협의 기록을 삭제할까요?")) {
           Eng.removeLog(t.dataset.coordDel);
+          applyToLiveSchedule();
           renderAll();
           toast("삭제되었습니다.");
         }

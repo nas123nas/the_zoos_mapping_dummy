@@ -25,7 +25,7 @@
       return formatDateParts(value.getFullYear(), value.getMonth() + 1, value.getDate());
     }
     const source = clean(value);
-    const separated = source.match(/(20\d{2})[-./](\d{1,2})[-./](\d{1,2})/);
+    const separated = source.match(/(?:^|\D)(20\d{2})[-./](\d{1,2})[-./](\d{1,2})(?!\d)/);
     const compact = separated ? null : source.match(/(?:^|\D)(20\d{2})(\d{2})(\d{2})(?:\D|$)/);
     const parts = separated || compact;
     if (!parts) return "";
@@ -61,7 +61,9 @@
     if (typeof value === "number") return Number.isFinite(value) ? value : "";
     const source = clean(value);
     if (!source) return "";
-    const parsed = Number(source.replace(/,/g, "").replace(/[^\d.-]/g, ""));
+    const normalized = source.replace(/,/g, "");
+    if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(normalized)) return "";
+    const parsed = Number(normalized);
     return Number.isFinite(parsed) ? parsed : "";
   }
 
@@ -90,6 +92,9 @@
       const manufacturingDate = parseDateText(row[column.제조일자]);
       if (!code || code === "합계" || !productName || !manufacturingDate) return null;
       const pieceQuantity = parseNumber(row[column.낱개수량]);
+      if (!Number.isSafeInteger(pieceQuantity) || pieceQuantity <= 0) return null;
+      const expiry = addMonthsToDate(manufacturingDate, 18).split("-").map(Number);
+      const expiryDate = new Date(Date.UTC(expiry[0], expiry[1] - 1, expiry[2] - 1));
       return {
         입고원본구분: "컨테이너파일",
         바코드: code,
@@ -98,7 +103,7 @@
         낱개수량: pieceQuantity,
         입수: parseNumber(row[column.입수]),
         제조일자: manufacturingDate,
-        유통기한: addMonthsToDate(manufacturingDate, 18),
+        유통기한: formatDateParts(expiryDate.getUTCFullYear(), expiryDate.getUTCMonth() + 1, expiryDate.getUTCDate()),
         입고파일명: fileName,
         입고예정일: metadata.inboundDate,
         입고예상일: metadata.inboundDate,

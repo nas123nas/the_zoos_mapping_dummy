@@ -12,9 +12,9 @@
   "use strict";
 
   const STORAGE_KEY = "thezoos-portfolio-inbound-coordination-v1";
-  // 확정일 비고 컬럼명 (나리주임 표기 제거). 기존 데이터 호환을 위해 구 헤더도 읽음.
+  // 확정일 비고 컬럼명 (담당자 표기 제거). 기존 데이터 호환을 위해 구 헤더도 읽음.
   const REMARK_HEADER = "비고(확정일)";
-  const REMARK_HEADER_LEGACY = "비고(확정일-나리주임)";
+  const REMARK_HEADER_LEGACY = "비고(확정일-담당자)";
 
   // ---------- 유틸 ----------
   function clean(value) {
@@ -217,7 +217,7 @@
     const latestMap = new Map();
     logs.forEach((log) => {
       const bc = barcode(log.barcode);
-      if (!bc || !log.confirmedDate) return;
+      if (!bc) return;
       const prev = latestMap.get(bc);
       if (!prev || (log.updatedAt || "") > (prev.updatedAt || "")) {
         latestMap.set(bc, log);
@@ -228,10 +228,31 @@
     const rows = (scheduleRows || []).map((row) => {
       const bc = barcode(row.바코드 || row.barcode || row.상품코드);
       const log = latestMap.get(bc);
-      if (!log) return { ...row };
+      const next = { ...row };
+      const ownership = row._coordinationOverride;
+      const headers = [REMARK_HEADER, REMARK_HEADER_LEGACY];
+      if (!log || !log.confirmedDate) {
+        if (ownership && ownership.barcode === bc) {
+          headers.forEach((header) => {
+            const original = ownership.originalRemarks?.[header];
+            if (!original || next[header] !== ownership.appliedRemark) return;
+            if (original.present) next[header] = original.value;
+            else delete next[header];
+          });
+          delete next._coordinationOverride;
+        }
+        return next;
+      }
       appliedCount += 1;
       const remark = buildRemarkFromLatest(log);
-      const next = { ...row };
+      const originalRemarks = {};
+      headers.forEach((header) => {
+        const previous = ownership?.barcode === bc ? ownership.originalRemarks?.[header] : null;
+        originalRemarks[header] = previous && row[header] === ownership.appliedRemark
+          ? { ...previous }
+          : { present: Object.prototype.hasOwnProperty.call(row, header), value: row[header] };
+      });
+      next._coordinationOverride = { barcode: bc, logId: log.id, appliedRemark: remark, originalRemarks };
       next[REMARK_HEADER] = remark;
       // 기존 엔진이 구 헤더를 아직 쓰는 동안 호환용으로도 기록
       next[REMARK_HEADER_LEGACY] = remark;

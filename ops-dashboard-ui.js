@@ -64,14 +64,6 @@
     return '<span class="ops-move-badge ' + meta.cls + '">' + meta.emoji + " " + esc(meta.text) + "</span>";
   }
 
-  function pickTransferFrom(row) {
-    if (row.stockTplIcn >= Math.abs(row.shortfall || 0)) return "3PL-가상센터";
-    if (row.stockHqB > 0) return "보조창고";
-    if (row.stockEcW > 0) return "이카운트도매";
-    if (row.stockTplIcn > 0) return "3PL-가상센터";
-    return "타창고";
-  }
-
   function setSummary(snap) {
     const rows = snap.grid || [];
     const set = (id, v) => {
@@ -170,8 +162,7 @@
                 esc(r.demand) +
                 '">출고 지시</button>';
             } else if (r.action === "transfer") {
-              const from = pickTransferFrom(r);
-              const qty = Math.max(Math.abs(r.shortfall || r.demand || 1), 1);
+              const { from, qty } = Eng.getTransferProposal(r);
               actionHtml =
                 '<button type="button" class="secondary ops-action-btn" data-ops-transfer="' +
                 esc(r.sku) +
@@ -584,9 +575,13 @@
         const qty = t.getAttribute("data-qty") || 0;
         const from = t.getAttribute("data-from") || "타창고";
         if (!confirm(from + " → 메인창고 이동 요청 " + qty + "개")) return;
-        Eng.requestTransfer(trSku, qty, from);
-        toast("재고 이동 요청 완료");
-        renderOpsDashboard();
+        try {
+          Eng.requestTransfer(trSku, qty, from);
+          toast("재고 이동 요청 완료");
+          renderOpsDashboard();
+        } catch (error) {
+          toast(error.message || "재고 이동 요청 실패");
+        }
       }
     });
 

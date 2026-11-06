@@ -40,7 +40,7 @@
           </div>
           <div class="nav-menu-group">
             <p class="nav-group-label">추가 기능</p>
-            <button class="nav-item nav-child" data-page="smartstore">스토어팜 전용 재고</button>
+            <button class="nav-item nav-child" data-page="smartstore">업체별 전용 재고</button>
             <button class="nav-item nav-child" data-page="expiry">유통기한 관리</button>
           </div>
           <section class="data-basis-card" aria-labelledby="data-basis-title">
@@ -191,7 +191,7 @@
               </div>
               <div class="dash-coord-actions">
                 <button type="button" class="secondary dash-btn-center" id="dash-ops-refresh">새로고침</button>
-                <button type="button" class="primary dash-btn-center" onclick="document.querySelector('[data-page=ops]')?.click()">전체 화면</button>
+                <button type="button" class="primary dash-btn-center" id="dash-ops-open">전체 화면</button>
               </div>
             </div>
             <p class="inventory-panel-description">위: 요약 · 아래: SKU 리스트. 메인창고 부족은 붉은색입니다. 행을 누르면 재고현황 전체 화면으로 이동합니다.</p>
@@ -258,7 +258,7 @@
               </div>
             </div>
           </section>
-<p class="inventory-method-note">※ 재고 예측은 최근 입고수량·현재고·경과일을 이용한 추정치입니다. 실제 출고·API 연동 시 더 정확해집니다.</p>
+<p class="inventory-method-note">해당 데이터는 데모데이터 입니다.</p>
           <style>
             .dash-scroll-section { scroll-margin-top: 24px; margin-top: 28px; }
             .nav-item.nav-child.dash-active { background: #fff1e5; color: #c65b00; font-weight: 700; }
@@ -656,11 +656,11 @@
           </style>
         </section>
 
-        <section id="mapping" class="page"><div class="page-heading"><div><p class="eyebrow">01 · AUTOMATIC MAPPING</p><h2>주문정보 자동 매핑</h2><p>기존 주문 양식과 신규 매핑점검 양식을 자동 구분해 분석합니다.</p></div><span class="fixed-pill">● 공용 마스터 적용 중</span></div><div class="two-column"><section class="panel upload"><h3>주문정보 파일 업로드</h3><p>기존 주문파일 또는 판매상품 정보·연결된 상품명이 포함된 매핑점검 파일</p><label class="dropzone"><input id="order-file" type="file" accept=".xlsx,.xls,.csv" multiple /><strong>파일 선택</strong><span id="order-file-name">파일을 선택하세요</span></label><button id="start-mapping" class="primary full">자동 매핑 시작</button></section><section class="panel side-summary"><p class="eyebrow">CURRENT MASTER</p><h3 id="fixed-master-name"></h3><p id="fixed-master-date"></p><hr /><b>매핑 기준</b><ul><li>같은 주문번호의 최소수량 합산</li><li>상품명·맛·용량·색상·크기·타입·옵션 비교</li><li>박스×개입(입수) 단위 환산 후 수량 검증</li><li>연결상품명 규격(개입·p·세트) 반영</li><li>구성품 누락·학습 매핑 적용</li></ul></section></div><section id="mapping-result" class="panel result" hidden><div class="section-title"><h3>매핑 결과 상세</h3><span class="tag green">상세 확인</span></div><table><thead><tr><th>주문번호</th><th>주문내용 / 옵션</th><th>자사상품</th><th>주문수량</th><th>매핑수량</th><th>최종판정</th><th>판정내용</th></tr></thead><tbody id="mapping-preview-body"></tbody></table></section></section>
+        <section id="mapping" class="page"><div class="page-heading"><div><p class="eyebrow">01 · AUTOMATIC MAPPING</p><h2>주문정보 자동 매핑</h2><p>기존 주문 양식과 신규 매핑점검 양식을 자동 구분해 분석합니다.</p></div><span class="fixed-pill">● 공용 마스터 적용 중</span></div><div class="two-column"><section class="panel upload"><h3>주문정보 파일 업로드</h3><p>기본 데모 주문이 준비되어 있습니다. 바로 실행하거나 다른 주문 파일을 선택할 수 있습니다.</p><label class="dropzone"><input id="order-file" type="file" accept=".xlsx,.xls,.csv" multiple /><strong>파일 선택</strong><span id="order-file-name">주문_데모_기본.csv</span></label><button id="start-mapping" class="primary full">자동 매핑 시작</button><button id="download-demo-order" class="secondary full" type="button">기본 데모 주문 CSV</button></section><section class="panel side-summary"><p class="eyebrow">CURRENT MASTER</p><h3 id="fixed-master-name"></h3><p id="fixed-master-date"></p><hr /><b>매핑 기준</b><ul><li>같은 주문번호의 최소수량 합산</li><li>상품명·맛·용량·색상·크기·타입·옵션 비교</li><li>박스×개입(입수) 단위 환산 후 수량 검증</li><li>연결상품명 규격(개입·p·세트) 반영</li><li>구성품 누락·학습 매핑 적용</li></ul></section></div><section id="mapping-result" class="panel result" hidden><div class="section-title"><h3>매핑 결과 상세</h3><span class="tag green">상세 확인</span></div><table><thead><tr><th>주문번호</th><th>주문내용 / 옵션</th><th>자사상품</th><th>주문수량</th><th>매핑수량</th><th>최종판정</th><th>판정내용</th></tr></thead><tbody id="mapping-preview-body"></tbody></table></section></section>
 
         <section id="review" class="page"><div class="page-heading"><div><p class="eyebrow">02 · REVIEW</p><h2>매핑 수정</h2><p>주문 매핑 결과 중 수정이 필요한 항목을 그룹화하여 보여줍니다.</p></div></div><section id="review-result" class="panel result"><div class="section-title"><h3>수정 필요 항목</h3><span class="tag red" id="review-count">0건</span></div><table><thead><tr><th>주문번호</th><th>주문정보</th><th>자사상품 및 매핑수량</th><th>확인 필요 사항</th><th>정답 텍스트 (상품 / 수량)</th><th>수정 반영</th></tr></thead><tbody id="review-items-body"></tbody></table></section></section>
 
-        <section id="master" class="page"><div class="page-heading"><div><p class="eyebrow">MASTER DATA</p><h2>자사상품 마스터</h2><p>고정된 파일은 다음 모든 매핑 작업의 기준이 됩니다.</p></div><span class="fixed-pill">● 공용 기준 데이터</span></div><div class="two-column"><section class="panel upload"><h3>새 마스터 파일로 교체</h3><p>여러 파일을 동시에 등록할 수 있고, 마지막 파일이 현재 기준으로 고정됩니다.</p><label class="dropzone"><input id="master-file" type="file" accept=".xlsx,.xls,.csv" multiple /><strong>자사상품 파일 선택</strong><span id="master-file-name">파일을 선택하세요</span></label><button id="fix-master" class="primary full">공용 마스터로 고정</button></section><section class="panel side-summary"><p class="eyebrow">CURRENT FIXED FILE</p><h3 id="fixed-master-name"></h3><p id="fixed-master-date"></p><hr /><b>교체 정책</b><ul><li>기존 파일은 버전 이력으로 보관</li><li>진행 중인 작업은 기존 기준 유지</li><li>새 작업부터 새 기준 적용</li></ul></section></div><section class="panel result"><div class="section-title"><h3>고정 파일 목록</h3><div class="history-actions"><button class="secondary" data-master-export="original">선택 원본 다운로드</button><button class="secondary" id="release-master">현재 고정 해제</button><button class="secondary" id="delete-masters">선택 삭제</button></div></div><table><thead><tr><th>선택</th><th>파일명</th><th>고정일</th><th>상태</th><th>비고</th></tr></thead><tbody id="master-files-body"></tbody></table></section></section>
+        <section id="master" class="page"><div class="page-heading"><div><p class="eyebrow">MASTER DATA</p><h2>자사상품 마스터</h2><p>고정된 파일은 다음 모든 매핑 작업의 기준이 됩니다.</p></div><span class="fixed-pill">● 공용 기준 데이터</span></div><div class="two-column"><section class="panel upload"><h3>새 마스터 파일로 교체</h3><p>여러 파일을 동시에 등록할 수 있고, 마지막 파일이 현재 기준으로 고정됩니다.</p><label class="dropzone"><input id="master-file" type="file" accept=".xlsx,.xls,.csv" multiple /><strong>자사상품 파일 선택</strong><span id="master-file-name">파일을 선택하세요</span></label><button id="fix-master" class="primary full">공용 마스터로 고정</button></section><section class="panel side-summary"><p class="eyebrow">CURRENT FIXED FILE</p><h3 id="fixed-master-name"></h3><p id="fixed-master-date"></p><hr /><b>교체 정책</b><ul><li>기존 파일은 버전 이력으로 보관</li><li>진행 중인 작업은 기존 기준 유지</li><li>새 작업부터 새 기준 적용</li></ul></section></div><section class="panel result"><div class="section-title"><h3>고정 파일 목록</h3><div class="history-actions"><button class="secondary" data-master-export="original">선택 상품목록 다운로드</button><button class="secondary" id="release-master">현재 고정 해제</button><button class="secondary" id="delete-masters">선택 삭제</button></div></div><table><thead><tr><th>선택</th><th>파일명</th><th>고정일</th><th>상태</th><th>비고</th></tr></thead><tbody id="master-files-body"></tbody></table></section></section>
 
 
         <section id="inbound" class="page"><div class="page-heading"><div><p class="eyebrow">INBOUND SCHEDULE</p><h2>입고예정 품목</h2><p>데모 일정과 컨테이너 입고파일에서 선택한 기간의 예정 품목과 유통기한을 확인합니다.</p></div><div class="history-actions"><a class="secondary button-link" href="#inbound" data-portfolio-schedule>데모 일정 보기</a><button class="secondary" id="paste-inbound-data" type="button">데이터 붙여넣기</button><button class="secondary" id="refresh-inbound" type="button">새로고침</button></div></div><section class="panel" style="padding:18px 24px"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><button class="secondary inbound-period-btn active" id="inbound-this-week" type="button">이번주</button><button class="secondary inbound-period-btn" id="inbound-next-week" type="button">다음주</button><span style="color:#74787c;font-size:13px;margin:0 6px">|</span><label style="font-size:13px;color:#74787c">기간 직접 설정</label><input type="date" id="inbound-date-from" style="padding:7px 10px;border:1px solid #e8e9ea;border-radius:7px;font-size:13px" /><span style="color:#74787c">~</span><input type="date" id="inbound-date-to" style="padding:7px 10px;border:1px solid #e8e9ea;border-radius:7px;font-size:13px" /><button class="primary" id="inbound-custom-range" type="button" style="padding:8px 14px;font-size:13px">조회</button></div></section><section class="panel master-status"><div><p class="eyebrow" id="inbound-period-eyebrow">THIS WEEK</p><div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;"><h3 id="inbound-week-label" style="margin:0;">이번주 기준 계산 중</h3><span id="inbound-holiday-label" style="background:#fff; color:#e53935; padding:2px 6px; border-radius:4px; font-weight:800; font-size:12px; display:none; border:1px solid #f0d8bd;"></span></div><p id="inbound-source-status">데모 데이터를 불러오고 있습니다.</p></div><span class="tag green" id="inbound-count">0건</span></section><section class="panel result"><div class="section-title"><h3>입고예정 상세</h3><span class="tag orange">전체 데이터 기준</span></div><table class="inbound-fit-table" data-fit-viewport="true" data-fit-weights="7,8,15,5,8,6,6,6,9,6,6,7,11,8"><thead><tr><th>입고예정일</th><th>바코드</th><th>상품명</th><th>현재고</th><th>일평균 소진량</th><th>최근입고수량</th><th>입고예정수량</th><th>입고구분</th><th>컨테이너/BL</th><th>제조일자</th><th>유통기한</th><th>입고파일명</th><th>메모</th><th>비고(확정일)</th></tr></thead><tbody id="weekly-inbound-body"><tr><td colspan="14">데이터를 불러오는 중입니다.</td></tr></tbody></table></section><section id="inbound-history-panel" class="inbound-history-panel" aria-live="polite" hidden></section></section>
@@ -791,28 +791,28 @@
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script src="./portfolio-data.js?v=20261105-portfolio-3"></script>
-    <script src="./container-inbound-engine.js?v=20261105-portfolio-3"></script>
-    <script src="./inbound-update-engine.js?v=20261105-portfolio-3"></script>
-    <script src="./mapping-engine.js?v=20261105-portfolio-3"></script>
-    <script src="./inbound-table-engine.js?v=20261105-portfolio-3"></script>
-    <script src="./table-controls.js?v=20261105-portfolio-3"></script>
-    <script src="./inventory-dashboard-engine.js?v=20261105-portfolio-3"></script>
-    <script src="./inventory-dashboard-compat.js?v=20261105-portfolio-3"></script>
-    <script src="./help-bot-search.js?v=20261105-portfolio-3"></script>
-    <script src="./workspace-storage.js?v=20261105-portfolio-3"></script>
-    <script src="./data-basis-engine.js?v=20261105-portfolio-3"></script>
-    <script src="./data-basis-snapshot.js?v=20261105-portfolio-3"></script>
-    <script src="./expiry-lot-engine.js?v=20261105-portfolio-3"></script>
-    <script src="./smartstore-inventory-engine.js?v=20261105-portfolio-3"></script>
-    <script src="./product-detail-engine.js?v=20261105-portfolio-3"></script>
-    <script src="./file-drop-engine.js?v=20261105-portfolio-3"></script>
-    <script src="./stock-row-visibility.js?v=20261105-portfolio-3"></script>
-    <script src="./history-panel-placement.js?v=20261105-portfolio-3"></script>
-    <script src="./inbound-coordination-engine.js?v=20261105-portfolio-3"></script>
-    <script src="./inbound-coordination-ui.js?v=20261105-portfolio-3"></script>
-    <script src="./ops-dashboard-engine.js?v=20261105-portfolio-3"></script>
-    <script src="./ops-dashboard-ui.js?v=20261105-portfolio-3"></script>
+    <script src="./portfolio-data.js?v=20261106-qa-2"></script>
+    <script src="./container-inbound-engine.js?v=20261106-qa-2"></script>
+    <script src="./inbound-update-engine.js?v=20261106-qa-2"></script>
+    <script src="./mapping-engine.js?v=20261106-qa-2"></script>
+    <script src="./inbound-table-engine.js?v=20261106-qa-2"></script>
+    <script src="./table-controls.js?v=20261106-qa-2"></script>
+    <script src="./inventory-dashboard-engine.js?v=20261106-qa-2"></script>
+    <script src="./inventory-dashboard-compat.js?v=20261106-qa-2"></script>
+    <script src="./help-bot-search.js?v=20261106-qa-2"></script>
+    <script src="./workspace-storage.js?v=20261106-qa-2"></script>
+    <script src="./data-basis-engine.js?v=20261106-qa-2"></script>
+    <script src="./data-basis-snapshot.js?v=20261106-qa-2"></script>
+    <script src="./expiry-lot-engine.js?v=20261106-qa-2"></script>
+    <script src="./smartstore-inventory-engine.js?v=20261106-qa-2"></script>
+    <script src="./product-detail-engine.js?v=20261106-qa-2"></script>
+    <script src="./file-drop-engine.js?v=20261106-qa-2"></script>
+    <script src="./stock-row-visibility.js?v=20261106-qa-2"></script>
+    <script src="./history-panel-placement.js?v=20261106-qa-2"></script>
+    <script src="./inbound-coordination-engine.js?v=20261106-qa-2"></script>
+    <script src="./inbound-coordination-ui.js?v=20261106-qa-2"></script>
+    <script src="./ops-dashboard-engine.js?v=20261106-qa-2"></script>
+    <script src="./ops-dashboard-ui.js?v=20261106-qa-2"></script>
     <script>
 (function(){
   function initResizableColumns(root){
@@ -851,9 +851,9 @@
   setInterval(function(){ initResizableColumns(); }, 2000);
 })();
 </script>
-<script src="./app.js?v=20261105-portfolio-3"></script>
-    <script src="./inventory-tools-ui.js?v=20261105-portfolio-3"></script>
-    <script src="./share-link.js?v=20261105-portfolio-3"></script>
+<script src="./app.js?v=20261106-qa-2"></script>
+    <script src="./inventory-tools-ui.js?v=20261106-qa-2"></script>
+    <script src="./share-link.js?v=20261106-qa-2"></script>
   
     <div id="ops-product-modal" class="ops-modal" hidden>
       <div class="ops-modal-backdrop" data-ops-modal-close></div>

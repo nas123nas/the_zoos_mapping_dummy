@@ -5,7 +5,7 @@
 })(typeof window !== "undefined" ? window : globalThis, function () {
   function compactMaster(master) {
     if (!master) return master;
-    const { content, encoding, productCatalog, ...metadata } = master;
+    const { content, encoding, ...metadata } = master;
     return metadata;
   }
 
@@ -19,7 +19,18 @@
 
   function parseStoredWorkspace(stored) {
     try {
-      return JSON.parse(stored);
+      const workspace = JSON.parse(stored);
+      if (!workspace || typeof workspace !== "object" || Array.isArray(workspace)) return null;
+      const arrayFields = [
+        "masterHistory", "jobs", "learningHistory", "reviewDrafts", "reviewItems",
+        "productCatalog", "mappingPreviewRows", "orderAnalysisRows", "inboundUpdates",
+        "productMemos", "containerInboundRecords", "smartstoreReservations", "expiryLots",
+        "rowOverrides", "mappingDecisions",
+      ];
+      for (const field of arrayFields) {
+        if (Object.hasOwn(workspace, field) && !Array.isArray(workspace[field])) workspace[field] = [];
+      }
+      return workspace;
     } catch (_) {
       return null;
     }

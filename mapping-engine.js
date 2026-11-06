@@ -108,6 +108,7 @@
       if (format === "new") {
         const rawGroupNo = text(cell(row, index.groupNo));
         const rawSalesInfo = text(cell(row, index.salesInfo));
+        if (rawGroupNo && rawGroupNo !== lastGroupNo) lastSalesInfo = "";
         if (rawGroupNo) lastGroupNo = rawGroupNo;
         if (rawSalesInfo) lastSalesInfo = rawSalesInfo;
         const parsed = parseSalesInfo(rawSalesInfo || lastSalesInfo);
@@ -220,7 +221,7 @@
     return [source];
   }
 
-  function quantityFromComponent(componentText) {
+  function quantityFromComponent(componentText, allowBoxFallback = true) {
     const source = text(componentText);
     if (!source) return 0;
     // x 12개, ×12개, *12개
@@ -235,7 +236,7 @@
     const boxCount = number(source.match(/(\d+)\s*박스/i)?.[1], 0);
     const perBox = number(source.match(/\((\d+)\s*개입\)/i)?.[1], 0) || packSizeFromText(source);
     if (boxCount && perBox) return boxCount * perBox;
-    if (boxCount) return boxCount;
+    if (boxCount && allowBoxFallback) return boxCount;
     return 0;
   }
 
@@ -290,7 +291,7 @@
 
   function expectedMappedQuantity(row) {
     const component = matchingOrderComponent(row);
-    const fromComponent = quantityFromComponent(component);
+    const fromComponent = quantityFromComponent(component, false);
     if (fromComponent > 0) return fromComponent;
 
     const fullText = text(row.sourceText);
@@ -323,16 +324,16 @@
 
   function productMatch(row, groupRows = [row]) {
     if (!row.mappedProduct) return { pass: false, reason: "상품 불일치: 연결된 상품명이 비어 있음" };
-    const mapped = compact(groupRows.map((item) => item.mappedProduct).join(" "));
+    if (![row.sourceText, row.productText, row.optionText].some((value) => text(value))) {
+      return { pass: false, reason: "상품 불일치: 비교할 주문내용이 비어 있음" };
+    }
+    const mapped = compact(row.mappedProduct);
     const mappedProduct = text(row.mappedProduct);
     const component = matchingOrderComponent(row);
     const componentCompact = compact(component);
     // 연결상품이 해당 선택/구성 문구와 직접 맞으면 우선 일치
     const mappedTokens = tokens(mappedProduct);
     const directHits = mappedTokens.filter((token) => componentCompact.includes(compact(token)));
-    if (mappedTokens.length && directHits.length >= Math.min(2, mappedTokens.length)) {
-      return { pass: true, reason: `상품 일치: 구성 '${component}' ↔ 연결상품 '${mappedProduct}'` };
-    }
     const options = optionValues(row.optionText || labeledOptionText(row.sourceText));
     // 다른 구성품에만 있는 옵션 토큰은 제외 (현재 매핑 상품 구성 기준)
     const relevantOptions = options.filter((token) => {
@@ -348,6 +349,9 @@
     const enoughProduct = !productTokens.length || matchedTokens.length >= Math.min(2, productTokens.length);
     if (missingOptions.length) {
       return { pass: false, reason: `상품 불일치: 주문 옵션 ${missingOptions.join(", ")}이(가) 연결상품 '${row.mappedProduct}'과 다름` };
+    }
+    if (mappedTokens.length && directHits.length >= Math.min(2, mappedTokens.length)) {
+      return { pass: true, reason: `상품 일치: 구성 '${component}' ↔ 연결상품 '${mappedProduct}'` };
     }
     if (!enoughProduct && directHits.length === 0) {
       return { pass: false, reason: `상품 불일치: 주문 '${row.sourceText}'과 연결상품 '${row.mappedProduct}'의 핵심 상품명이 다름` };

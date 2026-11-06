@@ -23,7 +23,7 @@
     };
     const patterns = {
       stock: [/현재고/, /^stock$/i],
-      domestic: [/국내/, /나리주임/, /확정일/],
+      domestic: [/국내/, /담당자/, /확정일/],
       import: [/수입/, /선적/, /입항/, /입고예상일/, /입고예정일/, /다음입고/, /예정참고/, /^BL$/i, /컨테이너/],
     };
     Object.keys(row || {}).sort().forEach((key) => {
